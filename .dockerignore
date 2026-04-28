@@ -1,0 +1,15 @@
+**/bin/
+**/obj/
+**/TestResults/
+**/tests/
+.git/
+.gitignore
+docker-data/
+*.db
+*.db-shm
+*.db-wal
+README.md
+Makefile
+scripts/
+.env
+.env.*

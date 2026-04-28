@@ -103,7 +103,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// En Docker suele usarse solo HTTP (8080); la redirección HTTPS rompe curl y Swagger en el host.
+if (Environment.GetEnvironmentVariable("FMC_DISABLE_HTTPS_REDIRECT") != "1")
+{
+    app.UseHttpsRedirection();
+}
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -126,10 +130,13 @@ static async Task SeedIfEmptyAsync(AppDbContext db)
     const string plainPassword = "SeedPass-123";
     var hash = BCrypt.Net.BCrypt.HashPassword(plainPassword);
 
-    var cafePremiumId = Guid.NewGuid();
-    var enterprisePremiumId = Guid.NewGuid();
-    var cafeStandardId = Guid.NewGuid();
-    var enterpriseStandardId = Guid.NewGuid();
+    // GUID fijos para que cualquier máquina con BD vacía obtenga los mismos IDs (útil para pruebas y documentación).
+    var cafePremiumId = Guid.Parse("a1111111-1111-4111-8111-111111111101");
+    var enterprisePremiumId = Guid.Parse("a1111111-1111-4111-8111-111111111201");
+    var cafeStandardId = Guid.Parse("a2222222-2222-4222-8222-222222221101");
+    var enterpriseStandardId = Guid.Parse("a2222222-2222-4222-8222-222222221201");
+    var consumerFreeId = Guid.Parse("b3333333-3333-4333-8333-333333333301");
+    var consumerPremiumId = Guid.Parse("b3333333-3333-4333-8333-333333333302");
 
     var cafePremium = new Cafeteria
     {
@@ -177,18 +184,26 @@ static async Task SeedIfEmptyAsync(AppDbContext db)
         CreatedAt = DateTimeOffset.UtcNow,
     };
 
-    var consumerId = Guid.NewGuid();
-    var consumer = new ConsumerUser
+    var consumerFree = new ConsumerUser
     {
-        Id = consumerId,
+        Id = consumerFreeId,
         Email = "consumidor@seed.fmc",
         PasswordHash = hash,
         Tier = ConsumerTier.Free,
         CreatedAt = DateTimeOffset.UtcNow,
     };
 
+    var consumerPremium = new ConsumerUser
+    {
+        Id = consumerPremiumId,
+        Email = "consumidor-premium@seed.fmc",
+        PasswordHash = hash,
+        Tier = ConsumerTier.Premium,
+        CreatedAt = DateTimeOffset.UtcNow,
+    };
+
     db.Cafeterias.AddRange(cafePremium, cafeStandard);
     db.EnterpriseUsers.AddRange(enterprisePremium, enterpriseStandard);
-    db.ConsumerUsers.Add(consumer);
+    db.ConsumerUsers.AddRange(consumerFree, consumerPremium);
     await db.SaveChangesAsync();
 }

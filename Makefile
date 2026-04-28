@@ -1,16 +1,31 @@
 # FMC — Find my coffee (Makefile)
 # Requiere: GNU Make, .NET SDK (dotnet en PATH)
+# Opcional: Docker / Docker Compose para `make up`
+
+-include .env
+export
 
 DOTNET := dotnet
 SLN := Fmc.sln
 API_PROJ := src/FMC.Api/Fmc.Api.csproj
 TESTS_PROJ := tests/Fmc.Api.Tests/Fmc.Api.Tests.csproj
-URL ?= http://127.0.0.1:5214
+
+# Primer puerto libre en 127.0.0.1 si PORT no viene por línea de comando ni por variable de entorno ya definida en Make.
+PICK_START ?= 5214
+PICK_END ?= 5230
+ifndef PORT
+PORT := $(shell bash scripts/pick-free-port.sh $(PICK_START) $(PICK_END))
+endif
+FMC_HTTP_PORT ?= $(PORT)
+URL ?= http://127.0.0.1:$(PORT)
+# Para smoke / enlaces cuando el puerto publicado es el de Compose (.env → FMC_HTTP_PORT)
+SMOKE_URL ?= http://127.0.0.1:$(FMC_HTTP_PORT)
+
 ENV ?= Development
 
 .DEFAULT_GOAL := help
 
-.PHONY: help restore build build-release test test-watch clean run dev swagger url ci watch
+.PHONY: help restore build build-release test test-watch clean run dev swagger url ci watch up down logs smoke docker-build
 
 help:
 	@echo "FMC (Find my coffee) — objetivos:"
@@ -20,11 +35,18 @@ help:
 	@echo "  make test         Ejecutar tests unitarios"
 	@echo "  make test-watch   dotnet watch test (re-ejecuta al cambiar código)"
 	@echo "  make clean        dotnet clean"
-	@echo "  make run          Levantar API con Swagger (ASPNETCORE_ENVIRONMENT=$(ENV))"
-	@echo "  make dev / swagger  Alias de run — Swagger UI en $(URL)/swagger"
-	@echo "  make url          Mostrar URL de Swagger"
-	@echo "  make ci           build + test (pipeline local)"
-	@echo "  make watch        dotnet watch run (API con recarga)"
+	@echo "  make run          API local (dotnet) — Swagger $(URL)/swagger"
+	@echo "                      (si PORT no está definido: primer puerto libre $(PICK_START)-$(PICK_END))"
+	@echo "  make run PORT=5281   Forzar puerto (si está ocupado, dotnet fallará)"
+	@echo "  make up           Docker Compose: API + SQLite en ./docker-data/fmc.db"
+	@echo "  make down         docker compose down"
+	@echo "  make logs         docker compose logs -f api"
+	@echo "  make smoke        Bash: alta consumidor + Enterprise + nearby ($(SMOKE_URL))"
+	@echo "  make docker-build Imagen fmc-api:local (sin levantar)"
+	@echo "  make dev / swagger  Alias de run local — $(URL)/swagger"
+	@echo "  make url          URL Swagger (local)"
+	@echo "  make ci           build + test"
+	@echo "  make watch        dotnet watch run (local)"
 
 restore:
 	$(DOTNET) restore $(SLN)
@@ -56,3 +78,19 @@ ci: build-release
 
 watch:
 	ASPNETCORE_ENVIRONMENT=$(ENV) $(DOTNET) watch run --project $(API_PROJ) --urls "$(URL)" --no-launch-profile
+
+docker-build:
+	docker compose build api
+
+up:
+	docker compose up -d --build
+
+down:
+	docker compose down
+
+logs:
+	docker compose logs -f api
+
+smoke:
+	chmod +x scripts/smoke-register.sh
+	BASE_URL="$(SMOKE_URL)" ./scripts/smoke-register.sh
