@@ -1,0 +1,6 @@
+@Fmc.Api_HostAddress = http://localhost:5214
+
+GET {{Fmc.Api_HostAddress}}/api/cafeterias/nearby?lat=40.4168&lng=-3.7038
+Accept: application/json
+
+###

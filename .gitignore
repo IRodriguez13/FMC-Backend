@@ -1,0 +1,48 @@
+# Build
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+*.dll
+*.pdb
+*.cache
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# VS Code
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
+
+# SQLite / local DB (FMC dev)
+*.db
+*.db-shm
+*.db-wal
+
+# NuGet
+*.nupkg
+**/packages/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets / local settings
+appsettings.*.local.json
+**/secrets.json
+
+# Test / coverage
+TestResults/
+coverage*.json
+coverage*.xml
+*.trx
+
+# Logs
+*.log
