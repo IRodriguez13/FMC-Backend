@@ -1,6 +1,8 @@
-using Fmc.Api.Entities;
-using Fmc.Api.Repositories;
-using Fmc.Api.Services;
+using Fmc.Application.Configuration;
+using Fmc.Application.Contracts.Discovery;
+using Fmc.Application.Interfaces;
+using Fmc.Application.Services;
+using Fmc.Domain.Entities;
 using Microsoft.Extensions.Options;
 using Moq;
 

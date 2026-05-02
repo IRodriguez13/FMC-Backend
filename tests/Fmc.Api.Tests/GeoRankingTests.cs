@@ -1,5 +1,5 @@
-using Fmc.Api.Entities;
-using Fmc.Api.Services;
+using Fmc.Application.Services;
+using Fmc.Domain.Entities;
 
 namespace Fmc.Api.Tests;
 
@@ -38,5 +38,11 @@ public class GeoRankingTests
     {
         var effective = GeoRanking.EffectiveSortDistanceMeters(3000, 2500);
         Assert.Equal(500, effective, precision: 3);
+    }
+
+    [Fact]
+    public void LocationShouldFailValidation()
+    {
+        Assert.False(LocationValidation.IsValidLocation(40.4168, -180.0001));   
     }
 }

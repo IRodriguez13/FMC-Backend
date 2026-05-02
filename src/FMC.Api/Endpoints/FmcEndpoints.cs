@@ -1,6 +1,10 @@
-using Fmc.Api.Contracts;
-using Fmc.Api.Entities;
-using Fmc.Api.Services;
+using Fmc.Application.Contracts.Auth;
+using Fmc.Application.Contracts.Consumer;
+using Fmc.Application.Contracts.Discovery;
+using Fmc.Application.Contracts.Enterprise;
+using Fmc.Application.Interfaces;
+using Fmc.Application.Services;
+using Fmc.Domain.Constants;
 
 namespace Fmc.Api.Endpoints;
 

@@ -1,6 +1,7 @@
 using System.Security.Claims;
-using Fmc.Api.Entities;
-using Fmc.Api.Services;
+using Fmc.Application.Services;
+using Fmc.Domain.Constants;
+using Fmc.Domain.Entities;
 using Microsoft.AspNetCore.Http;
 
 namespace Fmc.Api.Tests;

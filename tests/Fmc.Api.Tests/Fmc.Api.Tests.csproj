@@ -28,6 +28,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\FMC.Api\Fmc.Api.csproj" />
+    <ProjectReference Include="..\..\src\Fmc.Domain\Fmc.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Fmc.Application\Fmc.Application.csproj" />
+    <ProjectReference Include="..\..\src\Fmc.Infrastructure\Fmc.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
