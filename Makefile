@@ -25,7 +25,7 @@ ENV ?= Development
 
 .DEFAULT_GOAL := help
 
-.PHONY: help restore build build-release test test-watch clean run dev swagger url ci watch up down logs smoke docker-build
+.PHONY: help restore build build-release test test-watch clean run dev swagger url ci watch up down logs smoke smoke-full docker-build
 
 help:
 	@echo "FMC (Find my coffee) — objetivos:"
@@ -42,6 +42,7 @@ help:
 	@echo "  make down         docker compose down"
 	@echo "  make logs         docker compose logs -f api"
 	@echo "  make smoke        Bash: alta consumidor + Enterprise + nearby ($(SMOKE_URL))"
+	@echo "  make smoke-full   Bash: smoke completo 9 endpoints + errores + tokens en /tmp/tokenfmc"
 	@echo "  make docker-build Imagen fmc-api:local (sin levantar)"
 	@echo "  make dev / swagger  Alias de run local — $(URL)/swagger"
 	@echo "  make url          URL Swagger (local)"
@@ -94,3 +95,7 @@ logs:
 smoke:
 	chmod +x scripts/smoke-register.sh
 	BASE_URL="$(SMOKE_URL)" ./scripts/smoke-register.sh
+
+smoke-full:
+	chmod +x scripts/smoke-full.sh
+	BASE_URL="$(SMOKE_URL)" ./scripts/smoke-full.sh
