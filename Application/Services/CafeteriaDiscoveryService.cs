@@ -1,5 +1,5 @@
 using Fmc.Application.Configuration;
-using Fmc.Application.Contracts.Discovery;
+using Fmc.Application.Contracts;
 using Fmc.Application.Interfaces;
 using Fmc.Domain.Entities;
 using Microsoft.Extensions.Options;

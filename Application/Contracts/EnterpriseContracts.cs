@@ -1,6 +1,6 @@
 using Fmc.Domain.Entities;
 
-namespace Fmc.Application.Contracts.Enterprise;
+namespace Fmc.Application.Contracts;
 
 public record EnterpriseCafeteriaDto(
     Guid Id,

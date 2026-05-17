@@ -7,8 +7,8 @@ export
 
 DOTNET := dotnet
 SLN := Fmc.sln
-API_PROJ := src/FMC.Api/Fmc.Api.csproj
-TESTS_PROJ := tests/Fmc.Api.Tests/Fmc.Api.Tests.csproj
+API_PROJ := Api/Api.csproj
+TESTS_PROJ := Api.Tests/Api.Tests.csproj
 
 # Primer puerto libre en 127.0.0.1 si PORT no viene por línea de comando ni por variable de entorno ya definida en Make.
 PICK_START ?= 5214

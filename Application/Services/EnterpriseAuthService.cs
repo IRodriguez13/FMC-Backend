@@ -1,4 +1,4 @@
-using Fmc.Application.Contracts.Auth;
+using Fmc.Application.Contracts;
 using Fmc.Application.Interfaces;
 using Fmc.Domain.Constants;
 using Fmc.Domain.Entities;

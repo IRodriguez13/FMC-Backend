@@ -1,6 +1,6 @@
 using Fmc.Domain.Entities;
 
-namespace Fmc.Application.Contracts.Discovery;
+namespace Fmc.Application.Contracts;
 
 public record NearbyCafeteriaItem(
     Guid Id,

@@ -4,12 +4,13 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Fmc.Infrastructure</AssemblyName>
     <RootNamespace>Fmc.Infrastructure</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../Fmc.Domain/Fmc.Domain.csproj" />
-    <ProjectReference Include="../Fmc.Application/Fmc.Application.csproj" />
+    <ProjectReference Include="../Domain/Domain.csproj" />
+    <ProjectReference Include="../Application/Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

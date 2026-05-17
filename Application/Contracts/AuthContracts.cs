@@ -1,6 +1,6 @@
 using Fmc.Domain.Entities;
 
-namespace Fmc.Application.Contracts.Auth;
+namespace Fmc.Application.Contracts;
 
 public record ConsumerRegisterRequest(string Email, string Password);
 public record ConsumerLoginRequest(string Email, string Password);

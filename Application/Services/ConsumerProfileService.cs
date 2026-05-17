@@ -1,4 +1,4 @@
-using Fmc.Application.Contracts.Consumer;
+using Fmc.Application.Contracts;
 using Fmc.Application.Interfaces;
 using Fmc.Domain.Entities;
 

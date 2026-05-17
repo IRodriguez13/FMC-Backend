@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using Fmc.Api.Branding;
 using Fmc.Api.Endpoints;
+using Fmc.Api.GraphQL;
 using Fmc.Api.Middleware;
 using Fmc.Application;
 using Fmc.Application.Configuration;
@@ -32,6 +33,7 @@ builder.Host.UseSerilog((ctx, lc) => lc
 // ── Capas ───────────────────────────────────────────────────────────────
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddFmcGraphQL();
 
 // ── Opciones ────────────────────────────────────────────────────────────
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
@@ -122,6 +124,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapFmcEndpoints();
+app.MapFmcGraphQL();
 
 // ── Seed ────────────────────────────────────────────────────────────────
 await using (var scope = app.Services.CreateAsyncScope())

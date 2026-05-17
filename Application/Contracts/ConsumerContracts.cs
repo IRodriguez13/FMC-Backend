@@ -1,6 +1,6 @@
 using Fmc.Domain.Entities;
 
-namespace Fmc.Application.Contracts.Consumer;
+namespace Fmc.Application.Contracts;
 
 public record ConsumerProfileDto(Guid Id, string Email, ConsumerTier Tier);
 

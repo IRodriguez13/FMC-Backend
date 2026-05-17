@@ -12,11 +12,14 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.24" />
     <PackageReference Include="Serilog.AspNetCore" Version="8.0.3" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+    <PackageReference Include="HotChocolate.AspNetCore" Version="13.9.14" />
+    <PackageReference Include="HotChocolate.Data" Version="13.9.14" />
+    <PackageReference Include="HotChocolate.AspNetCore.Authorization" Version="13.9.14" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../Fmc.Application/Fmc.Application.csproj" />
-    <ProjectReference Include="../Fmc.Infrastructure/Fmc.Infrastructure.csproj" />
+    <ProjectReference Include="../Application/Application.csproj" />
+    <ProjectReference Include="../Infrastructure/Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
