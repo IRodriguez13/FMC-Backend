@@ -38,6 +38,8 @@ public class EnterpriseCafeteriaService(IEnterpriseUserRepository enterpriseUser
         cafe.Name = request.Name.Trim();
         cafe.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
         cafe.Address = string.IsNullOrWhiteSpace(request.Address) ? null : request.Address.Trim();
+        LocationValidation.EnsureWithinCabaServiceArea(request.Latitude, request.Longitude);
+
         cafe.Latitude = request.Latitude;
         cafe.Longitude = request.Longitude;
         cafe.DiscountPercent = Math.Clamp(request.DiscountPercent, 0, 100);
@@ -66,7 +68,9 @@ public class EnterpriseCafeteriaService(IEnterpriseUserRepository enterpriseUser
     {
         if (string.IsNullOrWhiteSpace(name) || name == "(Registro pendiente)")
             return false;
-        return latitude != 0 || longitude != 0;
+        if (latitude == 0 && longitude == 0)
+            return false;
+        return LocationValidation.IsWithinCabaServiceArea(latitude, longitude);
     }
 
     private static EnterpriseCafeteriaDto Map(EnterpriseUser eu)

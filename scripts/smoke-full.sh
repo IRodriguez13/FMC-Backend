@@ -149,7 +149,7 @@ save_token "consumer" "$CONSUMER_TOKEN"
 
 # 3) Registro Enterprise
 parse_response "$(do_request POST "${BASE_URL}/api/auth/enterprise/register" \
-  "{\"email\":\"${ENT_EMAIL}\",\"password\":\"${PASSWORD}\",\"cafeteriaName\":\"Café Smoke ${SUF}\",\"cafeteriaDescription\":\"Auto smoke-test\",\"cafeteriaAddress\":\"Calle Demo 42\",\"latitude\":40.4168,\"longitude\":-3.7038}")"
+  "{\"email\":\"${ENT_EMAIL}\",\"password\":\"${PASSWORD}\",\"cafeteriaName\":\"Café Smoke ${SUF}\",\"cafeteriaDescription\":\"Auto smoke-test\",\"cafeteriaAddress\":\"Palermo, CABA\",\"latitude\":-34.5875,\"longitude\":-58.4250}")"
 assert_status "POST enterprise/register" 200 "$HTTP_CODE"
 assert_json "role = enterprise" ".role" "enterprise" "$BODY"
 assert_json_not_null "cafeteriaId presente" ".cafeteriaId" "$BODY"
@@ -198,7 +198,7 @@ assert_json "listingActive = true" ".listingActive" "true" "$BODY"
 
 # 8) PUT /api/enterprise/cafeteria/me
 parse_response "$(do_request PUT "${BASE_URL}/api/enterprise/cafeteria/me" \
-  "{\"name\":\"Café Smoke Actualizado\",\"description\":\"Descripción editada\",\"address\":\"Avenida Test 99\",\"latitude\":40.42,\"longitude\":-3.70,\"discountPercent\":25}" \
+  "{\"name\":\"Café Smoke Actualizado\",\"description\":\"Descripción editada\",\"address\":\"Recoleta, CABA\",\"latitude\":-34.5950,\"longitude\":-58.3920,\"discountPercent\":25}" \
   "$ENTERPRISE_TOKEN")"
 assert_status "PUT enterprise/cafeteria/me" 200 "$HTTP_CODE"
 assert_json "nombre actualizado" ".name" "Café Smoke Actualizado" "$BODY"
@@ -220,13 +220,13 @@ echo -e "${YELLOW}═══ Discovery — Nearby ═══${NC}"
 # ═══════════════════════════════════════════════════════════════════
 
 # Nearby anónimo — radio clamped a 5km
-parse_response "$(do_request GET "${BASE_URL}/api/cafeterias/nearby?lat=40.4168&lng=-3.7038&radiusKm=100" "")"
+parse_response "$(do_request GET "${BASE_URL}/api/cafeterias/nearby?lat=-34.6037&lng=-58.3816&radiusKm=100" "")"
 assert_status "GET nearby (anon, radio excedido)" 200 "$HTTP_CODE"
 assert_json_numeric_le "appliedRadiusKm ≤ 5 (Free)" ".appliedRadiusKm" "5" "$BODY"
 assert_json "viewerTier = Free" ".viewerTier" "Free" "$BODY"
 
 # Nearby como Premium
-parse_response "$(do_request GET "${BASE_URL}/api/cafeterias/nearby?lat=40.4168&lng=-3.7038&radiusKm=12" "" "$CONSUMER_PREMIUM_TOKEN")"
+parse_response "$(do_request GET "${BASE_URL}/api/cafeterias/nearby?lat=-34.6037&lng=-58.3816&radiusKm=12" "" "$CONSUMER_PREMIUM_TOKEN")"
 assert_status "GET nearby (Premium, radio 12)" 200 "$HTTP_CODE"
 assert_json "viewerTier = Premium" ".viewerTier" "Premium" "$BODY"
 assert_json_numeric_le "appliedRadiusKm ≤ 15 (Premium)" ".appliedRadiusKm" "15" "$BODY"

@@ -21,7 +21,7 @@ public class FmcQueryTests
         mockHttpAccessor.Setup(a => a.HttpContext).Returns(httpContext);
 
         var expectedResponse = new NearbyCafeteriasResponse(
-            40.4168, -3.7038, 5.0, Domain.Entities.ConsumerTier.Free, 10, Array.Empty<NearbyCafeteriaItem>());
+            -34.6037, -58.3816, 5.0, Domain.Entities.ConsumerTier.Free, 10, Array.Empty<NearbyCafeteriaItem>());
 
         mockDiscovery
             .Setup(d => d.GetNearbyAsync(It.IsAny<NearbyQuery>(), It.IsAny<CancellationToken>()))
@@ -30,14 +30,14 @@ public class FmcQueryTests
         var query = new FmcQuery();
 
         // Act
-        var result = await query.GetNearbyCafeterias(40.4168, -3.7038, 5.0, mockDiscovery.Object, mockHttpAccessor.Object, CancellationToken.None);
+        var result = await query.GetNearbyCafeterias(-34.6037, -58.3816, 5.0, mockDiscovery.Object, mockHttpAccessor.Object, CancellationToken.None);
 
         // Assert
         Assert.NotNull(result);
         Assert.Equal(expectedResponse.QueryLatitude, result.QueryLatitude);
         Assert.Equal(expectedResponse.QueryLongitude, result.QueryLongitude);
         mockDiscovery.Verify(d => d.GetNearbyAsync(
-            It.Is<NearbyQuery>(q => q.Latitude == 40.4168 && q.Longitude == -3.7038 && q.RadiusKm == 5.0), 
+            It.Is<NearbyQuery>(q => q.Latitude == -34.6037 && q.Longitude == -58.3816 && q.RadiusKm == 5.0), 
             It.IsAny<CancellationToken>()), Times.Once);
     }
 

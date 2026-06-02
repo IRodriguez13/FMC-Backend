@@ -25,10 +25,12 @@ try
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Serilog ─────────────────────────────────────────────────────────────
+builder.Logging.ClearProviders();
 builder.Host.UseSerilog((ctx, lc) => lc
     .ReadFrom.Configuration(ctx.Configuration)
     .Enrich.FromLogContext()
-    .WriteTo.Console());
+    .Filter.ByExcluding(static e =>
+        e.Exception is OperationCanceledException or TaskCanceledException));
 
 // ── Capas ───────────────────────────────────────────────────────────────
 builder.Services.AddApplicationServices();
@@ -115,11 +117,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// En Docker suele usarse solo HTTP (8080); la redirección HTTPS rompe curl y Swagger en el host.
-if (Environment.GetEnvironmentVariable("FMC_DISABLE_HTTPS_REDIRECT") != "1")
-{
+// Solo HTTP en dev/Docker; evita "Failed to determine the https port for redirect".
+var disableHttpsRedirect =
+    app.Environment.IsDevelopment()
+    || Environment.GetEnvironmentVariable("FMC_DISABLE_HTTPS_REDIRECT") == "1";
+if (!disableHttpsRedirect)
     app.UseHttpsRedirection();
-}
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -131,7 +134,9 @@ await using (var scope = app.Services.CreateAsyncScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.MigrateAsync();
-    await DataSeeder.SeedIfEmptyAsync(db);
+    await db.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=WAL;");
+    await db.Database.ExecuteSqlRawAsync("PRAGMA busy_timeout=5000;");
+    await DataSeeder.EnsureCabaDemoAsync(db);
 }
 
 await app.RunAsync();

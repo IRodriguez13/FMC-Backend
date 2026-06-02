@@ -1,6 +1,7 @@
 using Fmc.Application.Configuration;
 using Fmc.Application.Contracts;
 using Fmc.Application.Interfaces;
+using Fmc.Domain.Constants;
 using Fmc.Domain.Entities;
 using Microsoft.Extensions.Options;
 
@@ -24,6 +25,8 @@ public class CafeteriaDiscoveryService(
 
     public async Task<NearbyCafeteriasResponse> GetNearbyAsync(NearbyQuery query, CancellationToken ct = default)
     {
+        LocationValidation.EnsureWithinCabaServiceArea(query.Latitude, query.Longitude);
+
         var maxResults = query.ViewerTier == ConsumerTier.Premium
             ? _disc.PremiumTierMaxResults
             : _disc.FreeTierMaxResults;
@@ -40,6 +43,8 @@ public class CafeteriaDiscoveryService(
         var radiusM = radiusKm * 1000;
 
         var items = listed
+            .Where(c => LocationValidation.IsWithinCabaServiceArea(c.Latitude, c.Longitude))
+            .Where(c => query.ExcludeCafeteriaId == null || c.Id != query.ExcludeCafeteriaId.Value)
             .Select(c =>
             {
                 var eu = c.EnterpriseUser!;

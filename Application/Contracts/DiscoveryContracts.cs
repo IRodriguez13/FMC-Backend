@@ -22,4 +22,10 @@ public record NearbyCafeteriasResponse(
     int MaxResultsCap,
     IReadOnlyList<NearbyCafeteriaItem> Items);
 
-public record NearbyQuery(double Latitude, double Longitude, double? RadiusKm, ConsumerTier ViewerTier);
+public record NearbyQuery(
+    double Latitude,
+    double Longitude,
+    double? RadiusKm,
+    ConsumerTier ViewerTier,
+    /// <summary>Si el viewer es Enterprise, su cafetería no debe listarse (competencia).</summary>
+    Guid? ExcludeCafeteriaId = null);

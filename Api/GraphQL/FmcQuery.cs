@@ -22,7 +22,8 @@ public class FmcQuery
         CancellationToken ct)
     {
         var tier = DiscoveryTierResolver.FromHttpContext(httpAccessor.HttpContext!);
-        var query = new NearbyQuery(lat, lng, radiusKm, tier);
+        var excludeId = DiscoveryTierResolver.ExcludeOwnCafeteriaId(httpAccessor.HttpContext!);
+        var query = new NearbyQuery(lat, lng, radiusKm, tier, excludeId);
         return await discovery.GetNearbyAsync(query, ct);
     }
 

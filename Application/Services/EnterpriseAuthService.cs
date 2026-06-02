@@ -36,6 +36,8 @@ public class EnterpriseAuthService(
 
         var lat = request.Latitude ?? 0;
         var lng = request.Longitude ?? 0;
+        if (lat != 0 || lng != 0)
+            LocationValidation.EnsureWithinCabaServiceArea(lat, lng);
 
         var listingActive = ShouldActivateListing(cafeteriaName, lat, lng);
 
@@ -82,7 +84,7 @@ public class EnterpriseAuthService(
             return false;
         if (latitude == 0 && longitude == 0)
             return false;
-        return true;
+        return LocationValidation.IsWithinCabaServiceArea(latitude, longitude);
     }
 
     public async Task<AuthTokenResponse> LoginAsync(EnterpriseLoginRequest request, CancellationToken ct = default)

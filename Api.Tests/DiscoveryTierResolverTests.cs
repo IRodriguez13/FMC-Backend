@@ -58,4 +58,30 @@ public class DiscoveryTierResolverTests
 
         Assert.Equal(ConsumerTier.Free, DiscoveryTierResolver.FromHttpContext(ctx));
     }
+
+    [Fact]
+    public void ExcludeOwnCafeteriaId_EnterpriseWithClaim_ReturnsCafeteriaId()
+    {
+        var cafeId = Guid.Parse("a1111111-1111-4111-8111-111111111101");
+        var identity = new ClaimsIdentity(
+            new[]
+            {
+                new Claim(ClaimTypes.Role, AuthRoles.Enterprise),
+                new Claim("cafeteria_id", cafeId.ToString()),
+            },
+            authenticationType: "Bearer");
+
+        var ctx = new DefaultHttpContext { User = new ClaimsPrincipal(identity) };
+
+        Assert.Equal(cafeId, DiscoveryTierResolver.ExcludeOwnCafeteriaId(ctx));
+    }
+
+    [Fact]
+    public void ExcludeOwnCafeteriaId_AnonymousOrConsumer_ReturnsNull()
+    {
+        Assert.Null(DiscoveryTierResolver.ExcludeOwnCafeteriaId(new DefaultHttpContext()));
+
+        var consumer = new ClaimsIdentity(new[] { new Claim(ClaimTypes.Role, AuthRoles.Consumer) }, "Bearer");
+        Assert.Null(DiscoveryTierResolver.ExcludeOwnCafeteriaId(new DefaultHttpContext { User = new ClaimsPrincipal(consumer) }));
+    }
 }

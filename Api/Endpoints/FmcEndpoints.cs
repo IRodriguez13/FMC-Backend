@@ -50,7 +50,8 @@ public static class FmcEndpoints
                 CancellationToken ct) =>
             {
                 var tier = DiscoveryTierResolver.FromHttpContext(http);
-                var query = new NearbyQuery(lat, lng, radiusKm, tier);
+                var excludeId = DiscoveryTierResolver.ExcludeOwnCafeteriaId(http);
+                var query = new NearbyQuery(lat, lng, radiusKm, tier, excludeId);
                 var result = await discoverySvc.GetNearbyAsync(query, ct);
                 return Results.Ok(result);
             })

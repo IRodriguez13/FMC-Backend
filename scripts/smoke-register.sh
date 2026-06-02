@@ -46,7 +46,7 @@ echo ""
 echo "=== 2) Registro Enterprise + cafetería ==="
 curl -sS -X POST "${BASE_URL}/api/auth/enterprise/register" \
   -H "Content-Type: application/json" \
-  -d "{\"email\":\"${ENT_EMAIL}\",\"password\":\"${PASS}\",\"cafeteriaName\":\"Cafetería smoke ${SUF}\",\"cafeteriaDescription\":\"Registro automático smoke-test\",\"cafeteriaAddress\":\"Calle Demo 1\",\"latitude\":40.4168,\"longitude\":-3.7038}" | pretty_json
+  -d "{\"email\":\"${ENT_EMAIL}\",\"password\":\"${PASS}\",\"cafeteriaName\":\"Cafetería smoke ${SUF}\",\"cafeteriaDescription\":\"Registro automático smoke-test\",\"cafeteriaAddress\":\"Palermo, CABA\",\"latitude\":-34.5875,\"longitude\":-58.4250}" | pretty_json
 
 echo ""
 echo "=== 3) Login consumidor ==="
@@ -61,8 +61,8 @@ curl -sS -X POST "${BASE_URL}/api/auth/enterprise/login" \
   -d "{\"email\":\"${ENT_EMAIL}\",\"password\":\"${PASS}\"}" | pretty_json
 
 echo ""
-echo "=== 5) Nearby (anon, Madrid centro) ==="
-curl -sS "${BASE_URL}/api/cafeterias/nearby?lat=40.4168&lng=-3.7038" | pretty_json
+echo "=== 5) Nearby (anon, centro CABA) ==="
+curl -sS "${BASE_URL}/api/cafeterias/nearby?lat=-34.6037&lng=-58.3816" | pretty_json
 
 echo ""
 echo "=== Resumen — usuarios creados (misma contraseña para ambos) ==="

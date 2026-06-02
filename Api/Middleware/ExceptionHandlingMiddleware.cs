@@ -14,9 +14,31 @@ public class ExceptionHandlingMiddleware(RequestDelegate next, ILogger<Exception
         {
             await next(context);
         }
+        catch (OperationCanceledException)
+        {
+            if (!context.Response.HasStarted)
+            {
+                context.Response.StatusCode = context.RequestAborted.IsCancellationRequested
+                    ? StatusCodes.Status499ClientClosedRequest
+                    : StatusCodes.Status504GatewayTimeout;
+            }
+        }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error no controlado");
+            var status = ex switch
+            {
+                UnauthorizedAccessException => StatusCodes.Status401Unauthorized,
+                KeyNotFoundException => StatusCodes.Status404NotFound,
+                InvalidOperationException => StatusCodes.Status409Conflict,
+                ArgumentException => StatusCodes.Status400BadRequest,
+                _ => StatusCodes.Status500InternalServerError,
+            };
+
+            if (status >= 500)
+                logger.LogError(ex, "Error no controlado");
+            else
+                logger.LogWarning(ex, "Solicitud rechazada ({Status}): {Path}", status, context.Request.Path);
+
             await WriteProblemAsync(context, ex);
         }
     }

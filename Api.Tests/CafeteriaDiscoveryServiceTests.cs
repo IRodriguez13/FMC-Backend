@@ -10,6 +10,9 @@ namespace Fmc.Api.Tests;
 
 public class CafeteriaDiscoveryServiceTests
 {
+    private const double CabaLat = -34.6037;
+    private const double CabaLng = -58.3816;
+
     private static DiscoveryOptions DefaultDiscoveryOptions() =>
         new()
         {
@@ -55,8 +58,8 @@ public class CafeteriaDiscoveryServiceTests
     [Fact]
     public async Task GetNearbyAsync_OrdersPremiumEnterpriseAhead_WhenEffectiveDistanceBeatsCloserStandard()
     {
-        const double userLat = 40.4168;
-        const double userLng = -3.7038;
+        const double userLat = CabaLat;
+        const double userLng = CabaLng;
 
         var closeStandard = CreateListedCafe("Close", userLat + 0.0009, userLng, EnterpriseSubscriptionTier.Standard);
         var farPremium = CreateListedCafe("PremiumFar", userLat + 0.0207, userLng, EnterpriseSubscriptionTier.Premium);
@@ -77,8 +80,8 @@ public class CafeteriaDiscoveryServiceTests
     [Fact]
     public async Task GetNearbyAsync_FreeTier_CapsResultCount()
     {
-        const double userLat = 40.4168;
-        const double userLng = -3.7038;
+        const double userLat = CabaLat;
+        const double userLng = CabaLng;
 
         var cafes = Enumerable.Range(0, 15)
             .Select(i => CreateListedCafe($"Cafe-{i}", userLat + i * 0.00002, userLng, EnterpriseSubscriptionTier.Standard))
@@ -98,15 +101,12 @@ public class CafeteriaDiscoveryServiceTests
     [Fact]
     public async Task GetNearbyAsync_FreeTier_ClampsRequestedRadiusToConfiguredMax()
     {
-        const double userLat = 40.4168;
-        const double userLng = -3.7038;
-
         var mock = new Mock<ICafeteriaRepository>();
         mock.Setup(r => r.GetListedForDiscoveryAsync(It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<Cafeteria>());
 
         var sut = new CafeteriaDiscoveryService(mock.Object, Options.Create(DefaultDiscoveryOptions()));
 
-        var result = await sut.GetNearbyAsync(new NearbyQuery(userLat, userLng, RadiusKm: 100, ConsumerTier.Free));
+        var result = await sut.GetNearbyAsync(new NearbyQuery(CabaLat, CabaLng, RadiusKm: 100, ConsumerTier.Free));
 
         Assert.Equal(5, result.AppliedRadiusKm);
     }
@@ -114,20 +114,47 @@ public class CafeteriaDiscoveryServiceTests
     [Fact]
     public async Task GetNearbyAsync_PremiumConsumer_SeesDiscountPercent_FreeDoesNot()
     {
-        const double lat = 40.4168;
-        const double lng = -3.7038;
-
-        var cafe = CreateListedCafe("ConDescuento", lat + 0.001, lng, EnterpriseSubscriptionTier.Standard, discountPercent: 12);
+        var cafe = CreateListedCafe("ConDescuento", CabaLat + 0.001, CabaLng, EnterpriseSubscriptionTier.Standard, discountPercent: 12);
 
         var mock = new Mock<ICafeteriaRepository>();
         mock.Setup(r => r.GetListedForDiscoveryAsync(It.IsAny<CancellationToken>())).ReturnsAsync(new List<Cafeteria> { cafe });
 
         var sut = new CafeteriaDiscoveryService(mock.Object, Options.Create(DefaultDiscoveryOptions()));
 
-        var premiumResult = await sut.GetNearbyAsync(new NearbyQuery(lat, lng, RadiusKm: 50, ConsumerTier.Premium));
-        var freeResult = await sut.GetNearbyAsync(new NearbyQuery(lat, lng, RadiusKm: 50, ConsumerTier.Free));
+        var premiumResult = await sut.GetNearbyAsync(new NearbyQuery(CabaLat, CabaLng, RadiusKm: 50, ConsumerTier.Premium));
+        var freeResult = await sut.GetNearbyAsync(new NearbyQuery(CabaLat, CabaLng, RadiusKm: 50, ConsumerTier.Free));
 
         Assert.Equal(12, premiumResult.Items[0].DiscountPercent);
         Assert.Null(freeResult.Items[0].DiscountPercent);
+    }
+
+    [Fact]
+    public async Task GetNearbyAsync_ExcludesOwnCafeteria_WhenExcludeIdSet()
+    {
+        var mine = CreateListedCafe("Mine", CabaLat + 0.001, CabaLng, EnterpriseSubscriptionTier.Premium);
+        var rival = CreateListedCafe("Rival", CabaLat + 0.002, CabaLng, EnterpriseSubscriptionTier.Standard);
+
+        var mock = new Mock<ICafeteriaRepository>();
+        mock.Setup(r => r.GetListedForDiscoveryAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Cafeteria> { mine, rival });
+
+        var sut = new CafeteriaDiscoveryService(mock.Object, Options.Create(DefaultDiscoveryOptions()));
+
+        var result = await sut.GetNearbyAsync(
+            new NearbyQuery(CabaLat, CabaLng, RadiusKm: 50, ConsumerTier.Free, mine.Id));
+
+        Assert.Single(result.Items);
+        Assert.Equal("Rival", result.Items[0].Name);
+    }
+
+    [Fact]
+    public async Task GetNearbyAsync_QueryOutsideCaba_Throws()
+    {
+        var mock = new Mock<ICafeteriaRepository>();
+        var sut = new CafeteriaDiscoveryService(mock.Object, Options.Create(DefaultDiscoveryOptions()));
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            sut.GetNearbyAsync(new NearbyQuery(40.4168, -3.7038, RadiusKm: 5, ConsumerTier.Free)));
+
     }
 }

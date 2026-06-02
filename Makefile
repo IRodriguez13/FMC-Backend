@@ -25,7 +25,7 @@ ENV ?= Development
 
 .DEFAULT_GOAL := help
 
-.PHONY: help restore build build-release test test-watch clean run dev swagger url ci watch up down logs smoke smoke-full docker-build
+.PHONY: help restore build build-release test test-watch clean run dev swagger url ci watch up down logs smoke smoke-full docker-build reset-db fix-docker-data-perms
 
 help:
 	@echo "FMC (Find my coffee) — objetivos:"
@@ -40,6 +40,8 @@ help:
 	@echo "  make run PORT=5281   Forzar puerto (si está ocupado, dotnet fallará)"
 	@echo "  make up           Docker Compose: API + SQLite en ./docker-data/fmc.db"
 	@echo "  make down         docker compose down"
+	@echo "  make reset-db     down + borrar docker-data/fmc.db (sin sudo)"
+	@echo "  make fix-docker-data-perms  Si rm falla: chown docker-data al usuario actual"
 	@echo "  make logs         docker compose logs -f api"
 	@echo "  make smoke        Bash: alta consumidor + Enterprise + nearby ($(SMOKE_URL))"
 	@echo "  make smoke-full   Bash: smoke completo 9 endpoints + errores + tokens en /tmp/tokenfmc"
@@ -69,7 +71,7 @@ clean:
 
 run dev swagger:
 	@echo "FMC Swagger UI: $(URL)/swagger"
-	ASPNETCORE_ENVIRONMENT=$(ENV) $(DOTNET) run --project $(API_PROJ) --urls "$(URL)" --no-launch-profile
+	FMC_DISABLE_HTTPS_REDIRECT=1 ASPNETCORE_ENVIRONMENT=$(ENV) $(DOTNET) run --project $(API_PROJ) --urls "$(URL)" --no-launch-profile
 
 url:
 	@echo "$(URL)/swagger"
@@ -78,7 +80,7 @@ ci: build-release
 	$(DOTNET) test $(SLN) -c Release --no-build --verbosity minimal
 
 watch:
-	ASPNETCORE_ENVIRONMENT=$(ENV) $(DOTNET) watch run --project $(API_PROJ) --urls "$(URL)" --no-launch-profile
+	FMC_DISABLE_HTTPS_REDIRECT=1 ASPNETCORE_ENVIRONMENT=$(ENV) $(DOTNET) watch run --project $(API_PROJ) --urls "$(URL)" --no-launch-profile
 
 docker-build:
 	docker compose build api
@@ -88,6 +90,16 @@ up:
 
 down:
 	docker compose down
+
+# Borra la SQLite montada en ./docker-data (evita 'Permiso denegado' tras sudo make).
+reset-db: down
+	@docker run --rm -v "$(CURDIR)/docker-data:/data" alpine:3.20 sh -c 'rm -f /data/fmc.db /data/fmc.db-shm /data/fmc.db-wal' 2>/dev/null || \
+		rm -f docker-data/fmc.db docker-data/fmc.db-shm docker-data/fmc.db-wal 2>/dev/null || true
+	@echo "BD eliminada. Siguiente: make up (regenera seed CABA)."
+
+fix-docker-data-perms:
+	@echo "Si hace falta contraseña de sudo, es por archivos creados como root."
+	sudo chown -R "$$(id -u):$$(id -g)" docker-data
 
 logs:
 	docker compose logs -f api

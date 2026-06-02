@@ -1,9 +1,12 @@
 # FMC Backend
 
-Find my coffee (**FMC**): API en `src/FMC.Api/` (`Fmc.Api.csproj`), solución `Fmc.sln`, tests `tests/Fmc.Api.Tests/`. SQLite por defecto en `fmc.db` (ignorado en `.gitignore`). Ver `Makefile` para `build`, `test`, `run`, etc.
+Find my coffee (**FMC**): API en `Api/` (`Fmc.Api.csproj`), solución `Fmc.sln`, tests `Api.Tests/`. SQLite por defecto en `fmc.db` (ignorado en `.gitignore`). Ver `Makefile` para `build`, `test`, `run`, etc.
+
+**Documentación ampliada (arquitectura, API, reglas, front):** [`Documentation/README.md`](./Documentation/README.md)
 
 ## Reglas de negocio (resumen)
 
+- **Área de servicio:** FMC opera solo en **CABA** (`CabaServiceArea`). `/nearby` rechaza consultas fuera del bounding box; altas/ediciones de cafetería deben tener coordenadas dentro de CABA para activar listado.
 - Solo aparecen cafeterías **registradas** por cuenta Enterprise con **`ListingActive = true`** (listado completado).
 - **Enterprise Premium** recibe mayor ponderación en `/nearby` frente a Enterprise Standard; consumidor Free y Premium ven el **mismo orden ponderado** (la ponderación no depende del tier del consumidor).
 - **`discountPercent`** en cada ítem: solo se informa si el consumidor es **Premium**; usuarios Free no ven descuentos en la API.
@@ -15,10 +18,14 @@ Al arrancar la API se ejecuta **`MigrateAsync`** y, si no hay cuentas Enterprise
 
 Contraseña común: `SeedPass-123`
 
+Cuatro cafeterías seed en barrios de **CABA** (Palermo, San Telmo, Recoleta, Caballito), centradas en el Obelisco para `/nearby` y el mapa.
+
 | Rol | Email |
 |-----|--------|
-| Enterprise Premium | `enterprise-premium@seed.fmc` |
-| Enterprise Standard | `enterprise-standard@seed.fmc` |
+| Enterprise Premium (Palermo) | `enterprise-premium@seed.fmc` |
+| Enterprise Standard (San Telmo) | `enterprise-standard@seed.fmc` |
+| Enterprise Premium (Recoleta) | `enterprise-recoleta@seed.fmc` |
+| Enterprise Standard (Caballito) | `enterprise-caballito@seed.fmc` |
 | Consumidor Free | `consumidor@seed.fmc` |
 | Consumidor Premium | `consumidor-premium@seed.fmc` |
 
@@ -46,6 +53,8 @@ make smoke                    # registros de prueba (usa FMC_HTTP_PORT / .env)
 make logs                     # ver logs del contenedor api
 make down                     # parar
 ```
+
+**No uses `sudo make`** (deja `docker-data/` como root). Para resetear la BD: `make reset-db && make up`. Si `rm` falla con permiso denegado: `make fix-docker-data-perms` y luego `make reset-db`.
 
 - **Swagger**: `http://127.0.0.1:<puerto>/swagger` (por defecto puerto `5214`; configurable con `FMC_HTTP_PORT` en `.env`).
 - **Consultar la BD en tu PC**: `sqlite3 docker-data/fmc.db` (o DBeaver / cualquier cliente SQLite apuntando a ese archivo).
