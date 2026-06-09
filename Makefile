@@ -70,7 +70,12 @@ clean:
 	$(DOTNET) clean $(SLN)
 
 run dev swagger:
-	@echo "FMC Swagger UI: $(URL)/swagger"
+	@echo "FMC API: $(URL)"
+	@echo "  Swagger UI: $(URL)/swagger  (la raíz / redirige aquí en Development)"
+	@echo "  GraphQL:    $(URL)/graphql"
+	@echo "  Nearby:     $(URL)/api/cafeterias/nearby?lat=-34.6037&lng=-58.3816"
+	@echo ""
+	@echo "Si el navegador muestra 404, probá $(URL)/swagger (no solo $(URL)/)."
 	FMC_DISABLE_HTTPS_REDIRECT=1 ASPNETCORE_ENVIRONMENT=$(ENV) $(DOTNET) run --project $(API_PROJ) --urls "$(URL)" --no-launch-profile
 
 url:

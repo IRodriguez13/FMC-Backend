@@ -47,3 +47,6 @@ coverage*.xml
 # Logs
 *.log
 .env.example
+
+# Uploaded media (local dev)
+uploads/

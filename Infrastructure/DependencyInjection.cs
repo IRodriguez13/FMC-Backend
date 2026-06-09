@@ -2,6 +2,7 @@ using Fmc.Application.Interfaces;
 using Fmc.Infrastructure.Auth;
 using Fmc.Infrastructure.Persistence;
 using Fmc.Infrastructure.Persistence.Repositories;
+using Fmc.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,12 +23,15 @@ public static class DependencyInjection
         services.AddDbContext<AppDbContext>(o => o.UseSqlite(connectionString));
 
         services.AddScoped<ICafeteriaRepository, CafeteriaRepository>();
+        services.AddScoped<ICafeteriaPhotoRepository, CafeteriaPhotoRepository>();
+        services.AddScoped<ICafeteriaReviewRepository, CafeteriaReviewRepository>();
         services.AddScoped<IConsumerUserRepository, ConsumerUserRepository>();
         services.AddScoped<IEnterpriseUserRepository, EnterpriseUserRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
+        services.AddSingleton<IFileStorageService, LocalFileStorageService>();
 
         return services;
     }

@@ -1,0 +1,50 @@
+---
+description: Changelog histórico obligatorio por feat en fmcbackend
+alwaysApply: true
+---
+
+# Changelog por feat (fmcbackend)
+
+## Archivo canónico
+
+`Documentation/changelog.md` — registro histórico de **cada feat o cambio de producto**, más reciente arriba.
+
+No reemplaza `git log`; lo complementa con contexto de negocio y alcance legible.
+
+## Cuándo actualizar
+
+Al **cerrar o entregar** una feat (código mergeable o pedido del mantenedor completado):
+
+1. Añadir entrada nueva **al inicio** del changelog (después del encabezado).
+2. Si hay commit: incluir hash corto, fecha y asunto del commit.
+3. Si aún no hay commit: fecha del día y referencia al pedido del mantenedor.
+
+## Formato de entrada
+
+```markdown
+## YYYY-MM-DD — <título breve>
+
+**Commit:** `<hash-corto>` — `<asunto>` *(omitir si sin commit aún)*  
+**Pedido:** <resumen del requerimiento del mantenedor>  
+**Alcance:** backend | frontend | docs | ops
+
+### Cambios
+- …
+
+### API / contrato *(si aplica)*
+- …
+
+### Validación
+- …
+```
+
+## Retroactivo
+
+Para reconstruir historial: `git log --format='%h|%ad|%s' --date=short --reverse`.  
+No borrar entradas antiguas; corregir solo con nuevo commit o nota explícita.
+
+## Qué no hacer
+
+- Entrada genérica sin fecha ni alcance.
+- Duplicar el diff completo; resumir comportamiento y archivos clave.
+- Omitir el changelog porque «ya está en el commit».

@@ -57,6 +57,66 @@ public static class FmcEndpoints
             })
             .AllowAnonymous();
 
+        discovery.MapGet("/{cafeteriaId:guid}/photos", async (
+                Guid cafeteriaId,
+                ICafeteriaPhotoService photos,
+                CancellationToken ct) =>
+            {
+                var result = await photos.ListAsync(cafeteriaId, ct);
+                return Results.Ok(result);
+            })
+            .AllowAnonymous();
+
+        discovery.MapPost("/{cafeteriaId:guid}/photos", async (
+                Guid cafeteriaId,
+                IFormFile file,
+                HttpContext http,
+                ICafeteriaPhotoService photos,
+                CancellationToken ct) =>
+            {
+                if (file is null || file.Length == 0)
+                    throw new ArgumentException("Archivo vacío.");
+
+                var authorId = http.User.RequireUserId();
+                var authorRole = http.User.RequireAuthorRole();
+                await using var stream = file.OpenReadStream();
+                var dto = await photos.UploadAsync(
+                    cafeteriaId,
+                    authorId,
+                    authorRole,
+                    stream,
+                    file.ContentType,
+                    file.Length,
+                    ct);
+                return Results.Created($"/api/cafeterias/{cafeteriaId}/photos/{dto.Id}", dto);
+            })
+            .RequireAuthorization()
+            .DisableAntiforgery();
+
+        discovery.MapGet("/{cafeteriaId:guid}/reviews", async (
+                Guid cafeteriaId,
+                ICafeteriaReviewService reviews,
+                CancellationToken ct) =>
+            {
+                var result = await reviews.ListAsync(cafeteriaId, ct);
+                return Results.Ok(result);
+            })
+            .AllowAnonymous();
+
+        discovery.MapPost("/{cafeteriaId:guid}/reviews", async (
+                Guid cafeteriaId,
+                CafeteriaReviewCreateRequest body,
+                HttpContext http,
+                ICafeteriaReviewService reviews,
+                CancellationToken ct) =>
+            {
+                var authorId = http.User.RequireUserId();
+                var authorRole = http.User.RequireAuthorRole();
+                var dto = await reviews.CreateOrUpdateAsync(cafeteriaId, authorId, authorRole, body, ct);
+                return Results.Ok(dto);
+            })
+            .RequireAuthorization();
+
         var consumer = app.MapGroup("/api/consumer").RequireAuthorization(policy => policy.RequireRole(AuthRoles.Consumer)).WithTags("Cliente");
 
         consumer.MapGet("/me", async (HttpContext http, IConsumerProfileService profiles, CancellationToken ct) =>

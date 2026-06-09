@@ -1,0 +1,39 @@
+---
+description: Tests unitarios obligatorios por feat en fmcbackend
+alwaysApply: true
+---
+
+# Tests por feat (fmcbackend)
+
+## Regla
+
+Toda **feat nueva o cambio de comportamiento no trivial** debe incluir tests en el **mismo entregable** que el código.
+
+Sin tests en la entrega → feat incompleta.
+
+## Alcance mínimo
+
+| Tipo de cambio | Qué testear |
+|----------------|-------------|
+| Servicio / regla de negocio | Ramas felices + validaciones + errores (`ArgumentException`, `KeyNotFoundException`, etc.) |
+| Endpoint nuevo | Delegación al servicio o integración si el proyecto ya lo usa |
+| Resolver GraphQL | Igual que endpoints (ver `FmcQueryTests`) |
+| Bug fix | Test de regresión que falle sin el fix |
+
+No tests que solo repitan el compilador ni asserts triviales sin comportamiento.
+
+## Convenciones del repo
+
+- Proyecto: `Api.Tests/` (xUnit + Moq).
+- Nombre: `{Clase}Tests.cs`, métodos `{Método}_{Escenario}_{ResultadoEsperado}`.
+- Ejecutar antes de cerrar: `dotnet test` y reportar resultado en changelog.
+
+## Al cerrar una feat
+
+1. Añadir/actualizar tests acordes al alcance.
+2. Correr `dotnet test`.
+3. Registrar en `Documentation/changelog.md` sección **Validación** (conteo OK/total).
+
+## Excepciones
+
+Solo cambios puramente cosméticos, docs sin lógica, o refactors sin cambio de comportamiento verificable — indicarlo explícitamente en el changelog.

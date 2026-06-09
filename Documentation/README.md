@@ -1,6 +1,6 @@
 # FMC — Documentación de proyecto
 
-> **Última verificación:** 2026-06-02  
+> **Última verificación:** 2026-06-09  
 > **Alcance:** backend (`fmcbackend`) + frontend integrado (`../FindMyCoffee-Frontend`)
 
 Documentación de **contexto para desarrollo y agentes**. No sustituye el README operativo de la raíz; amplía reglas de negocio, arquitectura y contratos.
@@ -15,7 +15,7 @@ Documentación de **contexto para desarrollo y agentes**. No sustituye el README
 | [04-business-rules.md](./04-business-rules.md) | CABA, tiers, descubrimiento, exclusión Enterprise |
 | [05-frontend-integration.md](./05-frontend-integration.md) | Acoplamiento API ↔ UI (resumen) |
 | [06-dev-ops.md](./06-dev-ops.md) | Make, Docker, seed, smoke, troubleshooting |
-| [changelog.md](./changelog.md) | Hitos documentados (actualizar por feat) |
+| [changelog.md](./changelog.md) | **Changelog histórico por feat** (obligatorio; regla `.cursor/rules/fmc-changelog.mdc`) |
 
 **Frontend (repo hermano):** [`../FindMyCoffee-Frontend/Documentation/README.md`](../FindMyCoffee-Frontend/Documentation/README.md) — doc canónica de la SPA.
 
@@ -26,6 +26,16 @@ Documentación de **contexto para desarrollo y agentes**. No sustituye el README
 3. **Señales de obsolescencia:** commits que tocan `Api/Endpoints/`, `Application/Services/`, contratos, `FindMyCoffee-Frontend/src/api/` o reglas en `Domain/` sin actualizar `Documentation/`.
 4. **Antes de confiar en estas docs:** revisar `git log -1 --oneline -- <ruta citada>` o leer el archivo fuente.
 
-## Creación / actualización
+## Changelog por feat
+
+Cada entrega de producto debe registrarse en [`changelog.md`](./changelog.md).  
+Regla del repo: `.cursor/rules/fmc-changelog.mdc` (siempre activa para agentes).
+
+## Tests por feat
+
+Toda feat nueva incluye tests en `Api.Tests/` antes de cerrar.  
+Regla del repo: `.cursor/rules/fmc-unit-tests.mdc` (siempre activa para agentes).
+
+## Creación / actualización (resto de docs)
 
 Solo con **aprobación explícita** del mantenedor por feat (regla global `ir0-project-documentation.mdc` en `~/.cursor/rules/`).

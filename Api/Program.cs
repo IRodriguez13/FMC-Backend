@@ -10,6 +10,8 @@ using Fmc.Application.Configuration;
 using Fmc.Infrastructure;
 using Fmc.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -40,6 +42,13 @@ builder.Services.AddFmcGraphQL();
 // ── Opciones ────────────────────────────────────────────────────────────
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 builder.Services.Configure<DiscoveryOptions>(builder.Configuration.GetSection(DiscoveryOptions.SectionName));
+builder.Services.Configure<MediaOptions>(builder.Configuration.GetSection(MediaOptions.SectionName));
+
+builder.Services.Configure<FormOptions>(o =>
+{
+    var media = builder.Configuration.GetSection(MediaOptions.SectionName).Get<MediaOptions>() ?? new MediaOptions();
+    o.MultipartBodyLengthLimit = media.MaxFileSizeBytes;
+});
 
 // ── JSON ────────────────────────────────────────────────────────────────
 builder.Services.ConfigureHttpJsonOptions(o =>
@@ -123,11 +132,27 @@ var disableHttpsRedirect =
     || Environment.GetEnvironmentVariable("FMC_DISABLE_HTTPS_REDIRECT") == "1";
 if (!disableHttpsRedirect)
     app.UseHttpsRedirection();
+
+var mediaOptions = app.Configuration.GetSection(MediaOptions.SectionName).Get<MediaOptions>() ?? new MediaOptions();
+Directory.CreateDirectory(mediaOptions.UploadRoot);
+app.UseStaticFiles(new StaticFileOptions
+{
+    RequestPath = mediaOptions.PublicUrlPath,
+    FileProvider = new PhysicalFileProvider(System.IO.Path.GetFullPath(mediaOptions.UploadRoot)),
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapFmcEndpoints();
 app.MapFmcGraphQL();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapGet("/", () => Results.Redirect("/swagger/index.html"))
+        .AllowAnonymous()
+        .ExcludeFromDescription();
+}
 
 // ── Seed ────────────────────────────────────────────────────────────────
 await using (var scope = app.Services.CreateAsyncScope())
