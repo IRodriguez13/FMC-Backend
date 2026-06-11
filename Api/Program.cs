@@ -238,7 +238,6 @@ else if (enableSwagger)
         .ExcludeFromDescription();
 }
 
-// ── Seed ────────────────────────────────────────────────────────────────
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -253,7 +252,7 @@ await app.RunAsync();
 }
 catch (Exception ex)
 {
-    Log.Fatal(ex, "La aplicación FMC terminó inesperadamente");
+    Log.Debug(ex, "La aplicación FMC terminó inesperadamente");
 }
 finally
 {
