@@ -68,6 +68,7 @@ Consulta: `sqlite3 docker-data/fmc.db`
 | Front no llega al API | Proxy 5214 vs puerto real | Alinear `vite.config.js`, `VITE_DEV_API_TARGET` y `FMC_HTTP_PORT` |
 | API crash al arrancar (`AvatarStorageKey`) | Migración pendiente | `make migrate` antes de `make run` |
 | Fotos seed 1×1 o rotas | PNG legacy con bytes JPEG | `make migrate && make run`; URLs `/media/seed-*.jpg`; redirect PNG→JPG en API |
+| Tarjetas sin imagen (ícono roto) | Front apunta a otro puerto que el API | En `fmcfront/.env`: `VITE_DEV_API_TARGET=http://127.0.0.1:<puerto make run>`; reiniciar `npm run dev` |
 
 ## Docker
 
