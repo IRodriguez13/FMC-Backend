@@ -25,7 +25,7 @@ ENV ?= Development
 
 .DEFAULT_GOAL := help
 
-.PHONY: help restore build build-release test test-watch clean run dev swagger url ci watch up down logs smoke smoke-full docker-build reset-db fix-docker-data-perms
+.PHONY: help restore build build-release test test-watch clean migrate migrations-list run dev swagger url ci watch up down logs smoke smoke-full docker-build reset-db fix-docker-data-perms backup-db
 
 help:
 	@echo "FMC (Find my coffee) — objetivos:"
@@ -35,7 +35,9 @@ help:
 	@echo "  make test         Ejecutar tests unitarios"
 	@echo "  make test-watch   dotnet watch test (re-ejecuta al cambiar código)"
 	@echo "  make clean        dotnet clean"
-	@echo "  make run          API local (dotnet) — Swagger $(URL)/swagger"
+	@echo "  make migrate      Aplicar migraciones EF (Api/fmc.db) antes de levantar la API"
+	@echo "  make migrations-list  Migraciones pendientes / aplicadas"
+	@echo "  make run          migrate + API local (dotnet) — Swagger $(URL)/swagger"
 	@echo "                      (si PORT no está definido: primer puerto libre $(PICK_START)-$(PICK_END))"
 	@echo "  make run PORT=5281   Forzar puerto (si está ocupado, dotnet fallará)"
 	@echo "  make up           Docker Compose: API + SQLite en ./docker-data/fmc.db"
@@ -45,6 +47,7 @@ help:
 	@echo "  make logs         docker compose logs -f api"
 	@echo "  make smoke        Bash: alta consumidor + Enterprise + nearby ($(SMOKE_URL))"
 	@echo "  make smoke-full   Bash: smoke completo 9 endpoints + errores + tokens en /tmp/tokenfmc"
+	@echo "  make backup-db    Copia fmc.db a docker-data/backups/"
 	@echo "  make docker-build Imagen fmc-api:local (sin levantar)"
 	@echo "  make dev / swagger  Alias de run local — $(URL)/swagger"
 	@echo "  make url          URL Swagger (local)"
@@ -69,7 +72,14 @@ test-watch:
 clean:
 	$(DOTNET) clean $(SLN)
 
-run dev swagger:
+migrate: build
+	@echo "Aplicando migraciones EF (SQLite relativa al directorio Api/)…"
+	$(DOTNET) ef database update --project Infrastructure/Infrastructure.csproj --startup-project $(API_PROJ)
+
+migrations-list: build
+	$(DOTNET) ef migrations list --project Infrastructure/Infrastructure.csproj --startup-project $(API_PROJ)
+
+run dev swagger: migrate
 	@echo "FMC API: $(URL)"
 	@echo "  Swagger UI: $(URL)/swagger  (la raíz / redirige aquí en Development)"
 	@echo "  GraphQL:    $(URL)/graphql"
@@ -84,7 +94,7 @@ url:
 ci: build-release
 	$(DOTNET) test $(SLN) -c Release --no-build --verbosity minimal
 
-watch:
+watch: migrate
 	FMC_DISABLE_HTTPS_REDIRECT=1 ASPNETCORE_ENVIRONMENT=$(ENV) $(DOTNET) watch run --project $(API_PROJ) --urls "$(URL)" --no-launch-profile
 
 docker-build:
@@ -116,3 +126,7 @@ smoke:
 smoke-full:
 	chmod +x scripts/smoke-full.sh
 	BASE_URL="$(SMOKE_URL)" ./scripts/smoke-full.sh
+
+backup-db:
+	chmod +x scripts/backup-db.sh
+	./scripts/backup-db.sh

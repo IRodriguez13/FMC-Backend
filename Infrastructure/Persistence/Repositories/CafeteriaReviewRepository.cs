@@ -10,11 +10,37 @@ public class CafeteriaReviewRepository(AppDbContext db) : ICafeteriaReviewReposi
         Guid cafeteriaId,
         CancellationToken ct = default)
     {
-        return await db.CafeteriaReviews
+        var list = await db.CafeteriaReviews
             .AsNoTracking()
             .Where(r => r.CafeteriaId == cafeteriaId)
-            .OrderByDescending(r => r.UpdatedAt)
             .ToListAsync(ct);
+
+        return list.OrderByDescending(r => r.UpdatedAt).ToList();
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, (double? AverageRating, int TotalCount)>> GetSummariesByCafeteriaIdsAsync(
+        IEnumerable<Guid> cafeteriaIds,
+        CancellationToken ct = default)
+    {
+        var ids = cafeteriaIds.Distinct().ToList();
+        if (ids.Count == 0)
+            return new Dictionary<Guid, (double?, int)>();
+
+        var summaries = await db.CafeteriaReviews
+            .AsNoTracking()
+            .Where(r => ids.Contains(r.CafeteriaId))
+            .GroupBy(r => r.CafeteriaId)
+            .Select(g => new
+            {
+                CafeteriaId = g.Key,
+                Average = g.Average(r => (double)r.Rating),
+                Count = g.Count(),
+            })
+            .ToListAsync(ct);
+
+        return summaries.ToDictionary(
+            s => s.CafeteriaId,
+            s => ((double?)Math.Round(s.Average, 1), s.Count));
     }
 
     public Task<CafeteriaReview?> GetByAuthorAsync(

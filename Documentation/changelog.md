@@ -1,10 +1,36 @@
 # Changelog histórico — FMC Backend
 
 > **Fuente de verdad del código:** Git. Este archivo es el registro legible de feats y cambios de producto.  
-> **Última actualización:** 2026-06-09  
+> **Última actualización:** 2026-06-11  
 > **Reglas del proyecto:** `.cursor/rules/fmc-changelog.mdc`, `.cursor/rules/fmc-unit-tests.mdc`
 
 Entradas **más recientes arriba**. Entradas retroactivas reconstruidas desde `git log`.
+
+---
+
+## 2026-06-11 — Perfil consumidor, fotos seed, migraciones y demo deploy
+
+**Commit:** *(este commit)*  
+**Pedido:** Perfil editable, fotos Palermo, descuentos Premium, `make migrate`, tests y documentación.  
+**Alcance:** backend, frontend (`fmcfront`), docs, tests
+
+### Backend
+- `ConsumerUser`: `DisplayName`, `AvatarStorageKey`; migración `ConsumerProfileFields`.
+- API: `PUT /api/consumer/me`, `POST /api/consumer/me/avatar`.
+- Seed fotos: assets `.jpg`, cleanup PNG legacy, redirect `/media/seed-*.png` → `.jpg`.
+- `make migrate` / `migrations-list`; `make run` ejecuta migrate antes del API.
+- `/nearby`: `coverImageUrl`, ratings batch.
+- Tests: `ConsumerProfileServiceTests` (10).
+
+### Frontend
+- Perfil: editar nombre, subir avatar; email solo lectura.
+- Dark mode, descuentos solo Premium, fotos (`CafeCoverImage`, `resolveMediaUrl`).
+- Vitest: `mediaUrl.test.js`, `cafeteriaMapper.test.js` (11 tests).
+
+### Validación
+- `dotnet test`: 55/55 OK
+- `npm test` (fmcfront): 11/11 OK
+- `npm run build` (fmcfront): OK
 
 ---
 

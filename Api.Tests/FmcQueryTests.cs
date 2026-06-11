@@ -56,7 +56,8 @@ public class FmcQueryTests
         
         mockHttpAccessor.Setup(a => a.HttpContext).Returns(httpContext);
 
-        var expectedProfile = new ConsumerProfileDto(userId, "consumer@test.com", Domain.Entities.ConsumerTier.Premium);
+        var expectedProfile = new ConsumerProfileDto(
+            userId, "consumer@test.com", "consumer", Domain.Entities.ConsumerTier.Premium, null);
         mockProfiles
             .Setup(p => p.GetProfileAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedProfile);

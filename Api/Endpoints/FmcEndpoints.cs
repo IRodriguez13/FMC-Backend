@@ -3,16 +3,25 @@ using Fmc.Application.Interfaces;
 using Fmc.Application.Services;
 using Fmc.Domain.Constants;
 
+using Fmc.Application.Configuration;
+using Microsoft.Extensions.Options;
+
 namespace Fmc.Api.Endpoints;
 
 public static class FmcEndpoints
 {
     public static WebApplication MapFmcEndpoints(this WebApplication app)
     {
-        var auth = app.MapGroup("/api/auth").WithTags("Auth");
+        var auth = app.MapGroup("/api/auth").WithTags("Auth").RequireRateLimiting("auth");
 
-        auth.MapPost("/consumer/register", async (ConsumerRegisterRequest body, IConsumerAuthService svc, CancellationToken ct) =>
+        auth.MapPost("/consumer/register", async (ConsumerRegisterRequest body, IConsumerAuthService svc, IOptions<DemoOptions> demo, CancellationToken ct) =>
             {
+                if (!demo.Value.AllowRegistration)
+                    return Results.Problem(
+                        statusCode: StatusCodes.Status403Forbidden,
+                        title: "Registro deshabilitado",
+                        detail: "Demo pública: usá las cuentas seed documentadas en /demo.");
+
                 var res = await svc.RegisterAsync(body, ct);
                 return Results.Ok(res);
             })
@@ -25,8 +34,14 @@ public static class FmcEndpoints
             })
             .AllowAnonymous();
 
-        auth.MapPost("/enterprise/register", async (EnterpriseRegisterRequest body, IEnterpriseAuthService svc, CancellationToken ct) =>
+        auth.MapPost("/enterprise/register", async (EnterpriseRegisterRequest body, IEnterpriseAuthService svc, IOptions<DemoOptions> demo, CancellationToken ct) =>
             {
+                if (!demo.Value.AllowRegistration)
+                    return Results.Problem(
+                        statusCode: StatusCodes.Status403Forbidden,
+                        title: "Registro deshabilitado",
+                        detail: "Demo pública: usá las cuentas seed documentadas en /demo.");
+
                 var res = await svc.RegisterAsync(body, ct);
                 return Results.Ok(res);
             })
@@ -91,6 +106,7 @@ public static class FmcEndpoints
                 return Results.Created($"/api/cafeterias/{cafeteriaId}/photos/{dto.Id}", dto);
             })
             .RequireAuthorization()
+            .RequireRateLimiting("upload")
             .DisableAntiforgery();
 
         discovery.MapGet("/{cafeteriaId:guid}/reviews", async (
@@ -125,6 +141,34 @@ public static class FmcEndpoints
             var dto = await profiles.GetProfileAsync(id, ct);
             return Results.Ok(dto);
         });
+
+        consumer.MapPut("/me", async (
+                ConsumerProfileUpdateRequest body,
+                HttpContext http,
+                IConsumerProfileService profiles,
+                CancellationToken ct) =>
+            {
+                var id = http.User.RequireUserId();
+                var dto = await profiles.UpdateProfileAsync(id, body, ct);
+                return Results.Ok(dto);
+            });
+
+        consumer.MapPost("/me/avatar", async (
+                IFormFile file,
+                HttpContext http,
+                IConsumerProfileService profiles,
+                CancellationToken ct) =>
+            {
+                if (file is null || file.Length == 0)
+                    throw new ArgumentException("Archivo vacío.");
+
+                var id = http.User.RequireUserId();
+                await using var stream = file.OpenReadStream();
+                var dto = await profiles.UploadAvatarAsync(id, stream, file.ContentType, file.Length, ct);
+                return Results.Ok(dto);
+            })
+            .RequireRateLimiting("upload")
+            .DisableAntiforgery();
 
         consumer.MapPatch("/tier", async (
                 ConsumerTierUpdateRequest body,

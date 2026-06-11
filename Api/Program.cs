@@ -14,8 +14,10 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.OpenApi.Models;
 using Serilog;
+using System.Threading.RateLimiting;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -43,6 +45,49 @@ builder.Services.AddFmcGraphQL();
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
 builder.Services.Configure<DiscoveryOptions>(builder.Configuration.GetSection(DiscoveryOptions.SectionName));
 builder.Services.Configure<MediaOptions>(builder.Configuration.GetSection(MediaOptions.SectionName));
+builder.Services.Configure<CorsOptions>(builder.Configuration.GetSection(CorsOptions.SectionName));
+builder.Services.Configure<RateLimitingOptions>(builder.Configuration.GetSection(RateLimitingOptions.SectionName));
+builder.Services.Configure<DemoOptions>(builder.Configuration.GetSection(DemoOptions.SectionName));
+
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<AppDbContext>("db");
+
+var rateLimit = builder.Configuration.GetSection(RateLimitingOptions.SectionName).Get<RateLimitingOptions>()
+                ?? new RateLimitingOptions();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddFixedWindowLimiter("auth", o =>
+    {
+        o.PermitLimit = rateLimit.AuthPermitLimit;
+        o.Window = TimeSpan.FromSeconds(rateLimit.AuthWindowSeconds);
+        o.QueueLimit = 0;
+    });
+    options.AddFixedWindowLimiter("upload", o =>
+    {
+        o.PermitLimit = rateLimit.UploadPermitLimit;
+        o.Window = TimeSpan.FromSeconds(rateLimit.UploadWindowSeconds);
+        o.QueueLimit = 0;
+    });
+});
+
+builder.Services.AddCors(options =>
+{
+    var cors = builder.Configuration.GetSection(CorsOptions.SectionName).Get<CorsOptions>() ?? new CorsOptions();
+    options.AddPolicy("FmcCors", policy =>
+    {
+        if (cors.AllowedOrigins.Length > 0)
+        {
+            policy.WithOrigins(cors.AllowedOrigins)
+                .WithMethods(cors.AllowedMethods)
+                .WithHeaders(cors.AllowedHeaders);
+        }
+        else if (builder.Environment.IsDevelopment())
+        {
+            policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+        }
+    });
+});
 
 builder.Services.Configure<FormOptions>(o =>
 {
@@ -120,8 +165,11 @@ app.UseSerilogRequestLogging();
 app.UseCorrelationId();
 app.UseGlobalExceptionHandler();
 
-if (app.Environment.IsDevelopment())
+var demoOptions = app.Configuration.GetSection(DemoOptions.SectionName).Get<DemoOptions>() ?? new DemoOptions();
+var enableSwagger = app.Environment.IsDevelopment() || demoOptions.EnableSwagger;
+if (enableSwagger)
 {
+    app.UseSwaggerBasicAuth();
     app.UseSwagger();
     app.UseSwaggerUI();
 }
@@ -134,20 +182,56 @@ if (!disableHttpsRedirect)
     app.UseHttpsRedirection();
 
 var mediaOptions = app.Configuration.GetSection(MediaOptions.SectionName).Get<MediaOptions>() ?? new MediaOptions();
-Directory.CreateDirectory(mediaOptions.UploadRoot);
+var uploadRootFull = System.IO.Path.GetFullPath(mediaOptions.UploadRoot);
+Directory.CreateDirectory(uploadRootFull);
+
+// PNG legacy con bytes JPEG rompían el navegador; redirigir a .jpg si existe.
+app.Use(async (ctx, next) =>
+{
+    var path = ctx.Request.Path.Value ?? "";
+    var mediaPrefix = mediaOptions.PublicUrlPath.TrimEnd('/');
+    if (path.StartsWith(mediaPrefix + "/", StringComparison.OrdinalIgnoreCase))
+    {
+        var fileName = path[(mediaPrefix.Length + 1)..];
+        if (fileName.StartsWith("seed-", StringComparison.OrdinalIgnoreCase)
+            && fileName.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+        {
+            var jpgName = System.IO.Path.ChangeExtension(fileName, ".jpg");
+            var jpgPath = System.IO.Path.Combine(uploadRootFull, jpgName);
+            if (System.IO.File.Exists(jpgPath) && new System.IO.FileInfo(jpgPath).Length >= 1024)
+            {
+                ctx.Response.Redirect($"{mediaPrefix}/{jpgName}", permanent: true);
+                return;
+            }
+        }
+    }
+
+    await next();
+});
+
 app.UseStaticFiles(new StaticFileOptions
 {
     RequestPath = mediaOptions.PublicUrlPath,
-    FileProvider = new PhysicalFileProvider(System.IO.Path.GetFullPath(mediaOptions.UploadRoot)),
+    FileProvider = new PhysicalFileProvider(uploadRootFull),
 });
+
+app.UseCors("FmcCors");
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapHealthChecks("/health").AllowAnonymous();
 app.MapFmcEndpoints();
 app.MapFmcGraphQL();
 
 if (app.Environment.IsDevelopment())
+{
+    app.MapGet("/", () => Results.Redirect("/swagger/index.html"))
+        .AllowAnonymous()
+        .ExcludeFromDescription();
+}
+else if (enableSwagger)
 {
     app.MapGet("/", () => Results.Redirect("/swagger/index.html"))
         .AllowAnonymous()
@@ -161,7 +245,7 @@ await using (var scope = app.Services.CreateAsyncScope())
     await db.Database.MigrateAsync();
     await db.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=WAL;");
     await db.Database.ExecuteSqlRawAsync("PRAGMA busy_timeout=5000;");
-    await DataSeeder.EnsureCabaDemoAsync(db);
+    await DataSeeder.EnsureCabaDemoAsync(db, mediaOptions);
 }
 
 await app.RunAsync();

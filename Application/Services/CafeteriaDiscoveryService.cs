@@ -19,6 +19,9 @@ public interface ICafeteriaDiscoveryService
 
 public class CafeteriaDiscoveryService(
     ICafeteriaRepository cafeteriaRepository,
+    ICafeteriaPhotoRepository photoRepository,
+    ICafeteriaReviewRepository reviewRepository,
+    IFileStorageService storage,
     IOptions<DiscoveryOptions> discoveryOptions) : ICafeteriaDiscoveryService
 {
     private readonly DiscoveryOptions _disc = discoveryOptions.Value;
@@ -42,7 +45,7 @@ public class CafeteriaDiscoveryService(
         var listed = await cafeteriaRepository.GetListedForDiscoveryAsync(ct);
         var radiusM = radiusKm * 1000;
 
-        var items = listed
+        var ranked = listed
             .Where(c => LocationValidation.IsWithinCabaServiceArea(c.Latitude, c.Longitude))
             .Where(c => query.ExcludeCafeteriaId == null || c.Id != query.ExcludeCafeteriaId.Value)
             .Select(c =>
@@ -68,16 +71,41 @@ public class CafeteriaDiscoveryService(
             .OrderBy(x => x.effective)
             .ThenBy(x => x.c.Name)
             .Take(maxResults)
-            .Select(x => new NearbyCafeteriaItem(
-                x.c.Id,
-                x.c.Name,
-                x.c.Description,
-                x.c.Address,
-                x.c.Latitude,
-                x.c.Longitude,
-                Math.Round(x.distanceM, 1),
-                x.SubscriptionTier,
-                x.DiscountPercent))
+            .ToList();
+
+        var cafeteriaIds = ranked.Select(x => x.c.Id).ToList();
+        var coverKeys = await photoRepository.GetLatestStorageKeyByCafeteriaIdsAsync(cafeteriaIds, ct);
+        var reviewSummaries = await reviewRepository.GetSummariesByCafeteriaIdsAsync(cafeteriaIds, ct);
+
+        var items = ranked
+            .Select(x =>
+            {
+                string? coverUrl = coverKeys.TryGetValue(x.c.Id, out var key)
+                    ? storage.GetPublicUrl(key)
+                    : null;
+
+                double? averageRating = null;
+                int? reviewCount = null;
+                if (reviewSummaries.TryGetValue(x.c.Id, out var summary) && summary.TotalCount > 0)
+                {
+                    averageRating = summary.AverageRating;
+                    reviewCount = summary.TotalCount;
+                }
+
+                return new NearbyCafeteriaItem(
+                    x.c.Id,
+                    x.c.Name,
+                    x.c.Description,
+                    x.c.Address,
+                    x.c.Latitude,
+                    x.c.Longitude,
+                    Math.Round(x.distanceM, 1),
+                    x.SubscriptionTier,
+                    x.DiscountPercent,
+                    coverUrl,
+                    averageRating,
+                    reviewCount);
+            })
             .ToList();
 
         return new NearbyCafeteriasResponse(

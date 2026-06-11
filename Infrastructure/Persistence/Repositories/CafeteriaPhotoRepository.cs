@@ -10,11 +10,32 @@ public class CafeteriaPhotoRepository(AppDbContext db) : ICafeteriaPhotoReposito
         Guid cafeteriaId,
         CancellationToken ct = default)
     {
-        return await db.CafeteriaPhotos
+        var list = await db.CafeteriaPhotos
             .AsNoTracking()
             .Where(p => p.CafeteriaId == cafeteriaId)
-            .OrderByDescending(p => p.CreatedAt)
             .ToListAsync(ct);
+
+        return list.OrderByDescending(p => p.CreatedAt).ToList();
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, string>> GetLatestStorageKeyByCafeteriaIdsAsync(
+        IEnumerable<Guid> cafeteriaIds,
+        CancellationToken ct = default)
+    {
+        var ids = cafeteriaIds.Distinct().ToList();
+        if (ids.Count == 0)
+            return new Dictionary<Guid, string>();
+
+        var list = await db.CafeteriaPhotos
+            .AsNoTracking()
+            .Where(p => ids.Contains(p.CafeteriaId))
+            .ToListAsync(ct);
+
+        return list
+            .GroupBy(p => p.CafeteriaId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(p => p.CreatedAt).First().StorageKey);
     }
 
     public async Task<CafeteriaPhoto> AddAsync(CafeteriaPhoto photo, CancellationToken ct = default)

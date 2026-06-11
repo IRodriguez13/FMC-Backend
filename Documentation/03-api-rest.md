@@ -1,6 +1,6 @@
 # 03 — API REST
 
-> **Última verificación:** 2026-06-02  
+> **Última verificación:** 2026-06-11  
 > **Fuente de verdad:** `Api/Endpoints/FmcEndpoints.cs`, `Application/Contracts/*.cs`
 
 Base URL local: `http://127.0.0.1:5214` (Docker: mismo puerto host vía `FMC_HTTP_PORT`).
@@ -32,7 +32,7 @@ Enums JSON en **camelCase/string** (`JsonStringEnumConverter`).
 |--------|------|------|-------|-------|
 | GET | `/nearby` | opcional | `lat`, `lng`, `radiusKm?` | Anon = tier Free; consumer JWT = límites/descuentos Premium |
 
-**Respuesta:** `NearbyCafeteriasResponse` — items con `subscriptionTier`, `distanceMeters`, `discountPercent` (null si viewer Free).
+**Respuesta:** `NearbyCafeteriasResponse` — items con `subscriptionTier`, `distanceMeters`, `coverImageUrl`, `averageRating`, `reviewCount`, `discountPercent` (null si viewer Free).
 
 **Comportamiento con JWT Enterprise:** excluye la cafetería del claim `cafeteria_id` (solo competencia).
 
@@ -45,7 +45,15 @@ Implementación: `DiscoveryTierResolver.ExcludeOwnCafeteriaId` + `NearbyQuery.Ex
 | Método | Ruta | Body | Respuesta |
 |--------|------|------|-----------|
 | GET | `/me` | — | `ConsumerProfileDto` |
+| PUT | `/me` | `{ displayName? }` | `ConsumerProfileDto` actualizado |
+| POST | `/me/avatar` | `multipart/form-data` campo `file` | `ConsumerProfileDto` con `avatarUrl` |
 | PATCH | `/tier` | `{ tier }` | `{ token, profile }` — JWT nuevo |
+
+**`ConsumerProfileDto`:** `id`, `email`, `displayName`, `tier`, `avatarUrl` (null si sin foto).
+
+- `displayName`: si no está guardado, el servicio deriva la parte local del email.
+- **Email no editable** por API (identificador de acceso).
+- Avatar: JPEG/PNG/WebP; rate limit `upload`.
 
 404 `KeyNotFoundException` si el `sub` del JWT no existe (p. ej. tras `reset-db`).
 

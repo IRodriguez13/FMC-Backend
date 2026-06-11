@@ -19,9 +19,9 @@ services:
       Jwt__Issuer: FMC
       Jwt__Audience: FmcClients
       Jwt__ExpiryMinutes: "60"
-      # Solo HTTP en el contenedor (evita redirects que rompen curl / Swagger)
+      Media__UploadRoot: /app/uploads
       FMC_DISABLE_HTTPS_REDIRECT: "1"
     volumes:
-      # Host: ruta local donde queda fmc.db (sqlite3, DBeaver, etc.)
       - ./docker-data:/data
+      - ./docker-data/uploads:/app/uploads
     restart: unless-stopped

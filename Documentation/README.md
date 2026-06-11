@@ -1,7 +1,7 @@
 # FMC — Documentación de proyecto
 
-> **Última verificación:** 2026-06-09  
-> **Alcance:** backend (`fmcbackend`) + frontend integrado (`../FindMyCoffee-Frontend`)
+> **Última verificación:** 2026-06-11  
+> **Alcance:** backend (`fmcbackend`) + frontend integrado (`../fmcfront`)
 
 Documentación de **contexto para desarrollo y agentes**. No sustituye el README operativo de la raíz; amplía reglas de negocio, arquitectura y contratos.
 
@@ -17,7 +17,7 @@ Documentación de **contexto para desarrollo y agentes**. No sustituye el README
 | [06-dev-ops.md](./06-dev-ops.md) | Make, Docker, seed, smoke, troubleshooting |
 | [changelog.md](./changelog.md) | **Changelog histórico por feat** (obligatorio; regla `.cursor/rules/fmc-changelog.mdc`) |
 
-**Frontend (repo hermano):** [`../FindMyCoffee-Frontend/Documentation/README.md`](../FindMyCoffee-Frontend/Documentation/README.md) — doc canónica de la SPA.
+**Frontend (repo hermano):** [`../fmcfront/Documentation/README.md`](../fmcfront/Documentation/README.md) — doc canónica de la SPA.
 
 ## Política de vigencia
 

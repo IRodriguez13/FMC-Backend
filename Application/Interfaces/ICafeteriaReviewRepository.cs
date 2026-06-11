@@ -6,6 +6,10 @@ public interface ICafeteriaReviewRepository
 {
     Task<IReadOnlyList<CafeteriaReview>> ListByCafeteriaIdAsync(Guid cafeteriaId, CancellationToken ct = default);
 
+    Task<IReadOnlyDictionary<Guid, (double? AverageRating, int TotalCount)>> GetSummariesByCafeteriaIdsAsync(
+        IEnumerable<Guid> cafeteriaIds,
+        CancellationToken ct = default);
+
     Task<CafeteriaReview?> GetByAuthorAsync(
         Guid cafeteriaId,
         Guid authorUserId,

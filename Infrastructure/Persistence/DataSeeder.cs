@@ -1,3 +1,4 @@
+using Fmc.Application.Configuration;
 using Fmc.Domain.Constants;
 using Fmc.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -23,9 +24,10 @@ public static class DataSeeder
     public static readonly Guid ConsumerFreeId = Guid.Parse("b3333333-3333-4333-8333-333333333301");
     public static readonly Guid ConsumerPremiumId = Guid.Parse("b3333333-3333-4333-8333-333333333302");
 
-    public static Task SeedIfEmptyAsync(AppDbContext db) => EnsureCabaDemoAsync(db);
+    public static Task SeedIfEmptyAsync(AppDbContext db, MediaOptions? media = null) =>
+        EnsureCabaDemoAsync(db, media);
 
-    public static async Task EnsureCabaDemoAsync(AppDbContext db)
+    public static async Task EnsureCabaDemoAsync(AppDbContext db, MediaOptions? media = null)
     {
         var hash = BCrypt.Net.BCrypt.HashPassword(DemoPassword);
         var now = DateTimeOffset.UtcNow;
@@ -67,6 +69,131 @@ public static class DataSeeder
         await UpsertConsumerAsync(db, ConsumerPremiumId, "consumidor-premium@seed.fmc", ConsumerTier.Premium, hash, now);
 
         await db.SaveChangesAsync();
+
+        await EnsureMediaDemoAsync(db, media ?? new MediaOptions(), now);
+    }
+
+    private static async Task EnsureMediaDemoAsync(AppDbContext db, MediaOptions media, DateTimeOffset now)
+    {
+        var uploadRoot = media.UploadRoot;
+        var seedAssetsRoot = SeedImageFiles.ResolveSeedAssetsRoot(uploadRoot);
+
+        foreach (var seed in SeedPhotos)
+        {
+            SeedImageFiles.EnsureOnDisk(uploadRoot, seed.StorageKey, seedAssetsRoot);
+            await UpsertPhotoAsync(db, seed.PhotoId, seed.CafeteriaId, seed.StorageKey,
+                seed.AuthorUserId, seed.AuthorRole, now.AddDays(-seed.DaysAgo));
+        }
+
+        SeedImageFiles.CleanupLegacySeedFiles(uploadRoot);
+
+        foreach (var seed in SeedReviews)
+        {
+            await UpsertReviewAsync(db, seed.ReviewId, seed.CafeteriaId, seed.AuthorUserId, seed.AuthorRole,
+                seed.Rating, seed.Text, now.AddDays(-seed.DaysAgo));
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    private static readonly (Guid PhotoId, Guid CafeteriaId, string StorageKey, Guid AuthorUserId, string AuthorRole, int DaysAgo)[] SeedPhotos =
+    [
+        (Guid.Parse("c1111111-1111-4111-8111-111111111101"), CafePremiumId, "seed-palermo-interior.jpg", ConsumerPremiumId, AuthRoles.Consumer, 12),
+        (Guid.Parse("c1111111-1111-4111-8111-111111111102"), CafePremiumId, "seed-palermo-barra.jpg", EnterprisePremiumId, AuthRoles.Enterprise, 8),
+        (Guid.Parse("c2222222-2222-4222-8222-222222221101"), CafeStandardId, "seed-san-telmo-patio.jpg", ConsumerFreeId, AuthRoles.Consumer, 20),
+        (Guid.Parse("c3333333-3333-4333-8333-333333331101"), CafeRecoletaId, "seed-recoleta-frente.jpg", ConsumerPremiumId, AuthRoles.Consumer, 5),
+        (Guid.Parse("c3333333-3333-4333-8333-333333331102"), CafeRecoletaId, "seed-recoleta-detalle.jpg", EnterpriseRecoletaId, AuthRoles.Enterprise, 3),
+        (Guid.Parse("c4444444-4444-4444-8444-444444441101"), CafeCaballitoId, "seed-caballito-local.jpg", EnterpriseStandardId, AuthRoles.Enterprise, 15),
+        (Guid.Parse("c4444444-4444-4444-8444-444444441102"), CafeCaballitoId, "seed-caballito-visita.jpg", ConsumerFreeId, AuthRoles.Consumer, 2),
+    ];
+
+    private static readonly (Guid ReviewId, Guid CafeteriaId, Guid AuthorUserId, string AuthorRole, int Rating, string Text, int DaysAgo)[] SeedReviews =
+    [
+        (Guid.Parse("d1111111-1111-4111-8111-111111111101"), CafePremiumId, ConsumerFreeId, AuthRoles.Consumer, 5,
+            "Ambiente increíble en Palermo. Ideal para trabajar con notebook un rato.", 14),
+        (Guid.Parse("d1111111-1111-4111-8111-111111111102"), CafePremiumId, ConsumerPremiumId, AuthRoles.Consumer, 4,
+            "Muy buen flat white. Volvería un sábado a la tarde.", 7),
+        (Guid.Parse("d1111111-1111-4111-8111-111111111103"), CafePremiumId, EnterpriseStandardId, AuthRoles.Enterprise, 4,
+            "Buen punto para reuniones informales; wifi estable.", 4),
+        (Guid.Parse("d2222222-2222-4222-8222-222222221101"), CafeStandardId, ConsumerPremiumId, AuthRoles.Consumer, 3,
+            "San Telmo clásico. Un poco ruidoso al mediodía pero auténtico.", 18),
+        (Guid.Parse("d2222222-2222-4222-8222-222222221102"), CafeStandardId, EnterpriseRecoletaId, AuthRoles.Enterprise, 5,
+            "Medialunas excelentes. Recomendado si estás de paseo por la feria.", 9),
+        (Guid.Parse("d3333333-3333-4333-8333-333333331101"), CafeRecoletaId, ConsumerFreeId, AuthRoles.Consumer, 4,
+            "Muy lindo local en Recoleta, atención amable.", 6),
+        (Guid.Parse("d3333333-3333-4333-8333-333333331102"), CafeRecoletaId, EnterpriseCaballitoId, AuthRoles.Enterprise, 4,
+            "Buen espresso y mesas cómodas cerca del Bajo.", 11),
+        (Guid.Parse("d4444444-4444-4444-8444-444444441101"), CafeCaballitoId, ConsumerPremiumId, AuthRoles.Consumer, 5,
+            "Caballito necesitaba un café así. Precios razonables.", 3),
+        (Guid.Parse("d4444444-4444-4444-8444-444444441102"), CafeCaballitoId, EnterprisePremiumId, AuthRoles.Enterprise, 3,
+            "Correcto para un café rápido antes del laburo.", 1),
+    ];
+
+    private static async Task UpsertPhotoAsync(
+        AppDbContext db,
+        Guid id,
+        Guid cafeteriaId,
+        string storageKey,
+        Guid authorUserId,
+        string authorRole,
+        DateTimeOffset createdAt)
+    {
+        var photo = await db.CafeteriaPhotos.FindAsync(id);
+        if (photo is null)
+        {
+            db.CafeteriaPhotos.Add(new CafeteriaPhoto
+            {
+                Id = id,
+                CafeteriaId = cafeteriaId,
+                StorageKey = storageKey,
+                ContentType = "image/jpeg",
+                AuthorUserId = authorUserId,
+                AuthorRole = authorRole,
+                CreatedAt = createdAt,
+            });
+            return;
+        }
+
+        photo.CafeteriaId = cafeteriaId;
+        photo.StorageKey = storageKey;
+        photo.ContentType = "image/jpeg";
+        photo.AuthorUserId = authorUserId;
+        photo.AuthorRole = authorRole;
+    }
+
+    private static async Task UpsertReviewAsync(
+        AppDbContext db,
+        Guid id,
+        Guid cafeteriaId,
+        Guid authorUserId,
+        string authorRole,
+        int rating,
+        string text,
+        DateTimeOffset createdAt)
+    {
+        var review = await db.CafeteriaReviews.FindAsync(id);
+        if (review is null)
+        {
+            db.CafeteriaReviews.Add(new CafeteriaReview
+            {
+                Id = id,
+                CafeteriaId = cafeteriaId,
+                AuthorUserId = authorUserId,
+                AuthorRole = authorRole,
+                Rating = rating,
+                Text = text,
+                CreatedAt = createdAt,
+                UpdatedAt = createdAt,
+            });
+            return;
+        }
+
+        review.CafeteriaId = cafeteriaId;
+        review.AuthorUserId = authorUserId;
+        review.AuthorRole = authorRole;
+        review.Rating = rating;
+        review.Text = text;
+        review.UpdatedAt = createdAt;
     }
 
     private static async Task UpsertCafeteriaAsync(

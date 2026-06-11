@@ -1,19 +1,20 @@
 # 05 — Integración frontend
 
-> **Última verificación:** 2026-06-02  
-> **Fuente de verdad:** `FindMyCoffee-Frontend/src/`, `vite.config.js`  
-> **Doc canónica del front:** [`FindMyCoffee-Frontend/Documentation/README.md`](../../FindMyCoffee-Frontend/Documentation/README.md)
+> **Última verificación:** 2026-06-11  
+> **Fuente de verdad:** `../fmcfront/src/`, `vite.config.js`  
+> **Doc canónica del front:** [`../fmcfront/Documentation/README.md`](../fmcfront/Documentation/README.md)
 
-Ruta del repo: **`../FindMyCoffee-Frontend`** respecto a fmcbackend.
+Ruta del repo: **`../fmcfront`** respecto a fmcbackend.
 
 Este archivo resume el acoplamiento **desde el backend**. Detalle de pantallas, estado y mapa → documentación del repo frontend (índice arriba).
 
 ## Arranque
 
 ```bash
-cd FindMyCoffee-Frontend
+cd fmcfront
 npm install --legacy-peer-deps   # react-leaflet@4 requiere peer legacy
-npm run dev                      # Vite, proxy /api → 5214
+npm run dev                      # Vite, proxy /api y /media
+npm test                         # Vitest (mediaUrl, cafeteriaMapper)
 ```
 
 Variable `VITE_API_URL`: vacía en dev (usa proxy). En prod: URL absoluta del API.
@@ -25,7 +26,8 @@ Variable `VITE_API_URL`: vacía en dev (usa proxy). En prod: URL absoluta del AP
 | `src/lib/apiClient.js` | `fetch` wrapper, `ApiError`, flag `sessionExpired` en 401/404 |
 | `src/api/authApi.js` | login/register consumer & enterprise |
 | `src/api/discoveryApi.js` | `GET /api/cafeterias/nearby` |
-| `src/api/consumerApi.js` | perfil, PATCH tier |
+| `src/api/consumerApi.js` | perfil, PUT nombre, POST avatar, PATCH tier |
+| `src/api/cafeteriaMediaApi.js` | fotos y reseñas por cafetería |
 | `src/api/enterpriseApi.js` | cafetería propia, subscription tier |
 | `src/lib/cafeteriaMapper.js` | DTO backend → modelo UI |
 
@@ -62,18 +64,28 @@ Variable `VITE_API_URL`: vacía en dev (usa proxy). En prod: URL absoluta del AP
 ## Navbar
 
 - Saludo **«Hola, {nombre}»** arriba a la derecha (`components/Navbar.jsx`).
-- Consumidor: nombre = parte local del email; Enterprise: nombre de cafetería.
+- Consumidor: `displayName` del API o parte local del email; Enterprise: nombre de cafetería.
 
 ## Geolocalización
 
 - `lib/geolocation.js` — fallback coords CABA (`lib/caba.js`) si el browser no entrega GPS.
 
+## Descuentos (consumidor Premium)
+
+- La API oculta `discountPercent` a viewers Free.
+- Tras activar Premium, `CafeteriasContext.refetch(newToken)` debe usar el JWT nuevo (evita listados sin descuento).
+- UI: badges en tarjetas, filtro «Con descuento» en Explore, banner en CafeDetail.
+
+## Perfil consumidor
+
+- Editable: `displayName`, avatar (`POST /api/consumer/me/avatar`).
+- Solo lectura: email (identificador de acceso).
+
 ## Limitaciones UI
 
 - Favoritos: solo `localStorage` (`lib/authStorage.js`).
-- Menú/reseñas en detalle: mock/placeholder, no vienen del API.
-- Imágenes cover: Unsplash estático en mapper.
+- Historial de visitas / direcciones guardadas: placeholder en perfil.
 
 ## Proxy y puerto
 
-Si el backend no está en 5214, actualizar `vite.config.js` `server.proxy['/api'].target` o usar `VITE_API_URL`.
+Si el backend no está en 5214, actualizar `VITE_DEV_API_TARGET` en `.env` o `vite.config.js` (`server.proxy` `/api` y `/media`).

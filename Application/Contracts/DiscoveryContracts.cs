@@ -12,7 +12,11 @@ public record NearbyCafeteriaItem(
     double DistanceMeters,
     EnterpriseSubscriptionTier SubscriptionTier,
     /// <summary>Solo informado para consumidor Premium; los usuarios Free no ven descuentos.</summary>
-    int? DiscountPercent);
+    int? DiscountPercent,
+    /// <summary>URL pública de la foto más reciente, si existe.</summary>
+    string? CoverImageUrl = null,
+    double? AverageRating = null,
+    int? ReviewCount = null);
 
 public record NearbyCafeteriasResponse(
     double QueryLatitude,

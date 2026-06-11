@@ -1,6 +1,6 @@
 # 06 — Dev, ops y troubleshooting
 
-> **Última verificación:** 2026-06-02  
+> **Última verificación:** 2026-06-11  
 > **Fuente de verdad:** `Makefile`, `docker-compose.yml`, `README.md`
 
 ## Comandos backend (fmcbackend)
@@ -13,7 +13,9 @@
 | `make fix-docker-data-perms` | Si `docker-data/` quedó como root tras `sudo make` |
 | `make logs` | Logs contenedor |
 | `make test` | Tests unitarios |
-| `make run` | API local dotnet (puerto libre 5214–5230 o `PORT=`) |
+| `make migrate` | Aplicar migraciones EF (`Api/fmc.db`) |
+| `make migrations-list` | Listar migraciones EF |
+| `make run` | `migrate` + API local dotnet (puerto libre 5214–5230 o `PORT=`) |
 | `make smoke` / `make smoke-full` | Scripts bash contra API |
 
 ## Stack completo local
@@ -25,7 +27,7 @@ make fix-docker-data-perms   # solo si hace falta
 make reset-db && make up
 
 # Terminal 2 — frontend
-cd ../FindMyCoffee-Frontend
+cd ../fmcfront
 npm install --legacy-peer-deps
 npm run dev
 ```
@@ -63,7 +65,9 @@ Consulta: `sqlite3 docker-data/fmc.db`
 | 500 + TaskCanceled en logs | Fetch abortado (StrictMode) o cliente cerró | Normal tras fix middleware; ignorar si 499 |
 | `rm docker-data`: permiso denegado | `sudo make` previo | `make fix-docker-data-perms` |
 | Mapa gris | CSS altura / react-leaflet | Ver `index.css` `.fmc-map-shell` |
-| Front no llega al API | Proxy 5214 vs puerto real | Alinear `vite.config.js` y `FMC_HTTP_PORT` |
+| Front no llega al API | Proxy 5214 vs puerto real | Alinear `vite.config.js`, `VITE_DEV_API_TARGET` y `FMC_HTTP_PORT` |
+| API crash al arrancar (`AvatarStorageKey`) | Migración pendiente | `make migrate` antes de `make run` |
+| Fotos seed 1×1 o rotas | PNG legacy con bytes JPEG | `make migrate && make run`; URLs `/media/seed-*.jpg`; redirect PNG→JPG en API |
 
 ## Docker
 

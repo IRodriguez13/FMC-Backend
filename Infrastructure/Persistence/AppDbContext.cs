@@ -17,6 +17,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.HasIndex(x => x.Email).IsUnique();
             e.Property(x => x.Email).HasMaxLength(256);
+            e.Property(x => x.DisplayName).HasMaxLength(80);
+            e.Property(x => x.AvatarStorageKey).HasMaxLength(260);
         });
 
         modelBuilder.Entity<Cafeteria>(e =>

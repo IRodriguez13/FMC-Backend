@@ -18,14 +18,16 @@ pretty_json() {
 
 echo "Esperando API en ${BASE_URL} …"
 for _ in $(seq 1 60); do
-  if curl -sf "${BASE_URL}/swagger/v1/swagger.json" >/dev/null 2>&1 \
+  if curl -sf "${BASE_URL}/health" >/dev/null 2>&1 \
+    || curl -sf "${BASE_URL}/swagger/v1/swagger.json" >/dev/null 2>&1 \
     || curl -sf "${BASE_URL}/swagger/index.html" >/dev/null 2>&1; then
     break
   fi
   sleep 1
 done
 
-if ! curl -sf "${BASE_URL}/swagger/v1/swagger.json" >/dev/null 2>&1 \
+if ! curl -sf "${BASE_URL}/health" >/dev/null 2>&1 \
+  && ! curl -sf "${BASE_URL}/swagger/v1/swagger.json" >/dev/null 2>&1 \
   && ! curl -sf "${BASE_URL}/swagger/index.html" >/dev/null 2>&1; then
   echo "ERROR: La API no responde en ${BASE_URL}. ¿Está levantada (make run / make up)?" >&2
   exit 1

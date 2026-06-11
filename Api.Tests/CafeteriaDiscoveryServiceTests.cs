@@ -23,6 +23,28 @@ public class CafeteriaDiscoveryServiceTests
             PremiumTierMaxRadiusKm = 15,
         };
 
+    private static CafeteriaDiscoveryService CreateSut(Mock<ICafeteriaRepository> cafeteriaMock)
+    {
+        var photoMock = new Mock<ICafeteriaPhotoRepository>();
+        photoMock
+            .Setup(r => r.GetLatestStorageKeyByCafeteriaIdsAsync(It.IsAny<IEnumerable<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<Guid, string>());
+
+        var reviewMock = new Mock<ICafeteriaReviewRepository>();
+        reviewMock
+            .Setup(r => r.GetSummariesByCafeteriaIdsAsync(It.IsAny<IEnumerable<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<Guid, (double?, int)>());
+
+        var storageMock = new Mock<IFileStorageService>();
+
+        return new CafeteriaDiscoveryService(
+            cafeteriaMock.Object,
+            photoMock.Object,
+            reviewMock.Object,
+            storageMock.Object,
+            Options.Create(DefaultDiscoveryOptions()));
+    }
+
     private static Cafeteria CreateListedCafe(
         string name,
         double lat,
@@ -68,7 +90,7 @@ public class CafeteriaDiscoveryServiceTests
         mock.Setup(r => r.GetListedForDiscoveryAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<Cafeteria> { closeStandard, farPremium });
 
-        var sut = new CafeteriaDiscoveryService(mock.Object, Options.Create(DefaultDiscoveryOptions()));
+        var sut = CreateSut(mock);
 
         var result = await sut.GetNearbyAsync(new NearbyQuery(userLat, userLng, RadiusKm: null, ConsumerTier.Premium));
 
@@ -90,7 +112,7 @@ public class CafeteriaDiscoveryServiceTests
         var mock = new Mock<ICafeteriaRepository>();
         mock.Setup(r => r.GetListedForDiscoveryAsync(It.IsAny<CancellationToken>())).ReturnsAsync(cafes);
 
-        var sut = new CafeteriaDiscoveryService(mock.Object, Options.Create(DefaultDiscoveryOptions()));
+        var sut = CreateSut(mock);
 
         var result = await sut.GetNearbyAsync(new NearbyQuery(userLat, userLng, RadiusKm: null, ConsumerTier.Free));
 
@@ -104,7 +126,7 @@ public class CafeteriaDiscoveryServiceTests
         var mock = new Mock<ICafeteriaRepository>();
         mock.Setup(r => r.GetListedForDiscoveryAsync(It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<Cafeteria>());
 
-        var sut = new CafeteriaDiscoveryService(mock.Object, Options.Create(DefaultDiscoveryOptions()));
+        var sut = CreateSut(mock);
 
         var result = await sut.GetNearbyAsync(new NearbyQuery(CabaLat, CabaLng, RadiusKm: 100, ConsumerTier.Free));
 
@@ -119,7 +141,7 @@ public class CafeteriaDiscoveryServiceTests
         var mock = new Mock<ICafeteriaRepository>();
         mock.Setup(r => r.GetListedForDiscoveryAsync(It.IsAny<CancellationToken>())).ReturnsAsync(new List<Cafeteria> { cafe });
 
-        var sut = new CafeteriaDiscoveryService(mock.Object, Options.Create(DefaultDiscoveryOptions()));
+        var sut = CreateSut(mock);
 
         var premiumResult = await sut.GetNearbyAsync(new NearbyQuery(CabaLat, CabaLng, RadiusKm: 50, ConsumerTier.Premium));
         var freeResult = await sut.GetNearbyAsync(new NearbyQuery(CabaLat, CabaLng, RadiusKm: 50, ConsumerTier.Free));
@@ -138,7 +160,7 @@ public class CafeteriaDiscoveryServiceTests
         mock.Setup(r => r.GetListedForDiscoveryAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<Cafeteria> { mine, rival });
 
-        var sut = new CafeteriaDiscoveryService(mock.Object, Options.Create(DefaultDiscoveryOptions()));
+        var sut = CreateSut(mock);
 
         var result = await sut.GetNearbyAsync(
             new NearbyQuery(CabaLat, CabaLng, RadiusKm: 50, ConsumerTier.Free, mine.Id));
@@ -151,7 +173,7 @@ public class CafeteriaDiscoveryServiceTests
     public async Task GetNearbyAsync_QueryOutsideCaba_Throws()
     {
         var mock = new Mock<ICafeteriaRepository>();
-        var sut = new CafeteriaDiscoveryService(mock.Object, Options.Create(DefaultDiscoveryOptions()));
+        var sut = CreateSut(mock);
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
             sut.GetNearbyAsync(new NearbyQuery(40.4168, -3.7038, RadiusKm: 5, ConsumerTier.Free)));
