@@ -1,6 +1,8 @@
+using Fmc.Domain.Abstractions;
+
 namespace Fmc.Domain.Entities;
 
-public class CafeteriaReview
+public class CafeteriaReview : IAuthorOwnedEntity
 {
     public Guid Id { get; set; }
     public Guid CafeteriaId { get; set; }

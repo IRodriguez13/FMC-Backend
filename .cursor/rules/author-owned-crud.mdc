@@ -1,0 +1,22 @@
+---
+description: CRUD genérico author-owned (reseñas, futuras entidades por cafetería)
+globs: Application/**/*.cs,Infrastructure/Persistence/Repositories/**/*.cs,Domain/**/*.cs
+alwaysApply: false
+---
+
+# Author-owned CRUD (FMC backend)
+
+Entidades con `CafeteriaId` + `AuthorUserId` + `AuthorRole` implementan `IAuthorOwnedEntity`.
+
+| Capa | Artefacto |
+|------|-----------|
+| Domain | `Domain/Abstractions/IAuthorOwnedEntity.cs` |
+| Repo | `IAuthorOwnedRepository<T>` + `AuthorOwnedRepository<T>` |
+| Servicio | `AuthorOwnedCrudServiceBase<T>` — `RequireOwnedEntityAsync`, `DeleteOwnedAsync` |
+| Reseñas | `ICafeteriaReviewRepository` extiende el genérico; métodos extra (`ListByCafeteriaId`, agregados) |
+
+**Reglas:** el autor sale del JWT, nunca del body. Update/delete exigen ownership. Mensajes: `Reseña no encontrada.`, `No podés modificar esta reseña.`
+
+**Rutas reseñas:** `GET/POST …/reviews`, `PUT/DELETE …/reviews/{reviewId}`.
+
+Nueva entidad author-owned: implementar interfaz, repo que herede `AuthorOwnedRepository<T>`, servicio que herede la base.

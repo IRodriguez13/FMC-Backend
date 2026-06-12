@@ -217,4 +217,113 @@ public class CafeteriaReviewServiceTests
         await Assert.ThrowsAsync<KeyNotFoundException>(() =>
             sut.CreateOrUpdateAsync(Guid.NewGuid(), Guid.NewGuid(), AuthRoles.Consumer, new CafeteriaReviewCreateRequest(4, null)));
     }
+
+    [Fact]
+    public async Task UpdateAsync_UpdatesOwnedReview()
+    {
+        var cafe = CreateCafeteria();
+        var authorId = Guid.NewGuid();
+        var reviewId = Guid.NewGuid();
+        var existing = new CafeteriaReview
+        {
+            Id = reviewId,
+            CafeteriaId = cafe.Id,
+            AuthorUserId = authorId,
+            AuthorRole = AuthRoles.Consumer,
+            Rating = 3,
+            Text = "Antes",
+            CreatedAt = DateTimeOffset.UtcNow.AddDays(-2),
+            UpdatedAt = DateTimeOffset.UtcNow.AddDays(-1),
+        };
+
+        var cafeterias = new Mock<ICafeteriaRepository>();
+        cafeterias.Setup(r => r.GetByIdAsync(cafe.Id, It.IsAny<CancellationToken>())).ReturnsAsync(cafe);
+
+        var reviewRepo = new Mock<ICafeteriaReviewRepository>();
+        reviewRepo.Setup(r => r.GetByIdAsync(reviewId, It.IsAny<CancellationToken>())).ReturnsAsync(existing);
+
+        var sut = CreateSut(cafeterias, reviewRepo);
+
+        var dto = await sut.UpdateAsync(
+            cafe.Id, reviewId, authorId, AuthRoles.Consumer, new CafeteriaReviewUpdateRequest(5, "Nuevo"));
+
+        reviewRepo.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        Assert.Equal(5, dto.Rating);
+        Assert.Equal("Nuevo", dto.Text);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_Throws_WhenNotOwner()
+    {
+        var cafe = CreateCafeteria();
+        var reviewId = Guid.NewGuid();
+        var existing = new CafeteriaReview
+        {
+            Id = reviewId,
+            CafeteriaId = cafe.Id,
+            AuthorUserId = Guid.NewGuid(),
+            AuthorRole = AuthRoles.Consumer,
+            Rating = 3,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+        };
+
+        var cafeterias = new Mock<ICafeteriaRepository>();
+        cafeterias.Setup(r => r.GetByIdAsync(cafe.Id, It.IsAny<CancellationToken>())).ReturnsAsync(cafe);
+
+        var reviewRepo = new Mock<ICafeteriaReviewRepository>();
+        reviewRepo.Setup(r => r.GetByIdAsync(reviewId, It.IsAny<CancellationToken>())).ReturnsAsync(existing);
+
+        var sut = CreateSut(cafeterias, reviewRepo);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            sut.UpdateAsync(cafe.Id, reviewId, Guid.NewGuid(), AuthRoles.Consumer, new CafeteriaReviewUpdateRequest(1, null)));
+    }
+
+    [Fact]
+    public async Task DeleteAsync_RemovesOwnedReview()
+    {
+        var cafe = CreateCafeteria();
+        var authorId = Guid.NewGuid();
+        var reviewId = Guid.NewGuid();
+        var existing = new CafeteriaReview
+        {
+            Id = reviewId,
+            CafeteriaId = cafe.Id,
+            AuthorUserId = authorId,
+            AuthorRole = AuthRoles.Enterprise,
+            Rating = 2,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+        };
+
+        var cafeterias = new Mock<ICafeteriaRepository>();
+        cafeterias.Setup(r => r.GetByIdAsync(cafe.Id, It.IsAny<CancellationToken>())).ReturnsAsync(cafe);
+
+        var reviewRepo = new Mock<ICafeteriaReviewRepository>();
+        reviewRepo.Setup(r => r.GetByIdAsync(reviewId, It.IsAny<CancellationToken>())).ReturnsAsync(existing);
+
+        var sut = CreateSut(cafeterias, reviewRepo);
+
+        await sut.DeleteAsync(cafe.Id, reviewId, authorId, AuthRoles.Enterprise);
+
+        reviewRepo.Verify(r => r.DeleteAsync(existing, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_Throws_WhenReviewNotFound()
+    {
+        var cafe = CreateCafeteria();
+        var cafeterias = new Mock<ICafeteriaRepository>();
+        cafeterias.Setup(r => r.GetByIdAsync(cafe.Id, It.IsAny<CancellationToken>())).ReturnsAsync(cafe);
+
+        var reviewRepo = new Mock<ICafeteriaReviewRepository>();
+        reviewRepo.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((CafeteriaReview?)null);
+
+        var sut = CreateSut(cafeterias, reviewRepo);
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            sut.DeleteAsync(cafe.Id, Guid.NewGuid(), Guid.NewGuid(), AuthRoles.Consumer));
+    }
 }

@@ -133,6 +133,35 @@ public static class FmcEndpoints
             })
             .RequireAuthorization();
 
+        discovery.MapPut("/{cafeteriaId:guid}/reviews/{reviewId:guid}", async (
+                Guid cafeteriaId,
+                Guid reviewId,
+                CafeteriaReviewUpdateRequest body,
+                HttpContext http,
+                ICafeteriaReviewService reviews,
+                CancellationToken ct) =>
+            {
+                var authorId = http.User.RequireUserId();
+                var authorRole = http.User.RequireAuthorRole();
+                var dto = await reviews.UpdateAsync(cafeteriaId, reviewId, authorId, authorRole, body, ct);
+                return Results.Ok(dto);
+            })
+            .RequireAuthorization();
+
+        discovery.MapDelete("/{cafeteriaId:guid}/reviews/{reviewId:guid}", async (
+                Guid cafeteriaId,
+                Guid reviewId,
+                HttpContext http,
+                ICafeteriaReviewService reviews,
+                CancellationToken ct) =>
+            {
+                var authorId = http.User.RequireUserId();
+                var authorRole = http.User.RequireAuthorRole();
+                await reviews.DeleteAsync(cafeteriaId, reviewId, authorId, authorRole, ct);
+                return Results.NoContent();
+            })
+            .RequireAuthorization();
+
         var consumer = app.MapGroup("/api/consumer").RequireAuthorization(policy => policy.RequireRole(AuthRoles.Consumer)).WithTags("Cliente");
 
         consumer.MapGet("/me", async (HttpContext http, IConsumerProfileService profiles, CancellationToken ct) =>

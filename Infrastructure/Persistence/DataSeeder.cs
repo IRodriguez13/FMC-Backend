@@ -265,6 +265,7 @@ public static class DataSeeder
         user.Email = normalized;
         user.CafeteriaId = cafeteriaId;
         user.SubscriptionTier = tier;
+        user.PasswordHash = passwordHash;
     }
 
     private static async Task UpsertConsumerAsync(
@@ -294,6 +295,7 @@ public static class DataSeeder
         {
             user.Email = normalized;
             user.Tier = tier;
+            user.PasswordHash = passwordHash;
         }
     }
 }

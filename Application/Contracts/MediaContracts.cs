@@ -21,6 +21,8 @@ public record CafeteriaReviewDto(
 
 public record CafeteriaReviewCreateRequest(int Rating, string? Text);
 
+public record CafeteriaReviewUpdateRequest(int Rating, string? Text);
+
 public record CafeteriaPhotosResponse(IReadOnlyList<CafeteriaPhotoDto> Items);
 
 public record CafeteriaReviewsResponse(

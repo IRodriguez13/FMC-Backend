@@ -14,14 +14,31 @@ public interface ICafeteriaReviewService
         string authorRole,
         CafeteriaReviewCreateRequest request,
         CancellationToken ct = default);
+
+    Task<CafeteriaReviewDto> UpdateAsync(
+        Guid cafeteriaId,
+        Guid reviewId,
+        Guid authorUserId,
+        string authorRole,
+        CafeteriaReviewUpdateRequest request,
+        CancellationToken ct = default);
+
+    Task DeleteAsync(
+        Guid cafeteriaId,
+        Guid reviewId,
+        Guid authorUserId,
+        string authorRole,
+        CancellationToken ct = default);
 }
 
 public class CafeteriaReviewService(
     ICafeteriaRepository cafeterias,
     ICafeteriaReviewRepository reviews)
-    : ICafeteriaReviewService
+    : AuthorOwnedCrudServiceBase<CafeteriaReview>(cafeterias, reviews), ICafeteriaReviewService
 {
     private const int MaxTextLength = 2000;
+    private const string ReviewNotFound = "Reseña no encontrada.";
+    private const string ReviewForbidden = "No podés modificar esta reseña.";
 
     public async Task<CafeteriaReviewsResponse> ListAsync(Guid cafeteriaId, CancellationToken ct = default)
     {
@@ -40,13 +57,7 @@ public class CafeteriaReviewService(
         CancellationToken ct = default)
     {
         await EnsureCafeteriaExistsAsync(cafeteriaId, ct);
-
-        if (request.Rating is < 1 or > 5)
-            throw new ArgumentException("La valoración debe estar entre 1 y 5.");
-
-        var text = string.IsNullOrWhiteSpace(request.Text) ? null : request.Text.Trim();
-        if (text?.Length > MaxTextLength)
-            throw new ArgumentException($"El texto no puede superar {MaxTextLength} caracteres.");
+        var (rating, text) = ValidatePayload(request.Rating, request.Text);
 
         var now = DateTimeOffset.UtcNow;
         var existing = await reviews.GetByAuthorAsync(cafeteriaId, authorUserId, authorRole, ct);
@@ -59,7 +70,7 @@ public class CafeteriaReviewService(
                 CafeteriaId = cafeteriaId,
                 AuthorUserId = authorUserId,
                 AuthorRole = authorRole,
-                Rating = request.Rating,
+                Rating = rating,
                 Text = text,
                 CreatedAt = now,
                 UpdatedAt = now,
@@ -69,17 +80,56 @@ public class CafeteriaReviewService(
             return Map(saved);
         }
 
-        existing.Rating = request.Rating;
-        existing.Text = text;
-        existing.UpdatedAt = now;
+        ApplyChanges(existing, rating, text, now);
         await reviews.SaveChangesAsync(ct);
         return Map(existing);
     }
 
-    private async Task EnsureCafeteriaExistsAsync(Guid cafeteriaId, CancellationToken ct)
+    public async Task<CafeteriaReviewDto> UpdateAsync(
+        Guid cafeteriaId,
+        Guid reviewId,
+        Guid authorUserId,
+        string authorRole,
+        CafeteriaReviewUpdateRequest request,
+        CancellationToken ct = default)
     {
-        _ = await cafeterias.GetByIdAsync(cafeteriaId, ct)
-            ?? throw new KeyNotFoundException("Cafetería no encontrada.");
+        await EnsureCafeteriaExistsAsync(cafeteriaId, ct);
+        var (rating, text) = ValidatePayload(request.Rating, request.Text);
+
+        var entity = await RequireOwnedEntityAsync(
+            cafeteriaId, reviewId, authorUserId, authorRole, ReviewNotFound, ReviewForbidden, ct);
+
+        ApplyChanges(entity, rating, text, DateTimeOffset.UtcNow);
+        await reviews.SaveChangesAsync(ct);
+        return Map(entity);
+    }
+
+    public Task DeleteAsync(
+        Guid cafeteriaId,
+        Guid reviewId,
+        Guid authorUserId,
+        string authorRole,
+        CancellationToken ct = default) =>
+        DeleteOwnedAsync(
+            cafeteriaId, reviewId, authorUserId, authorRole, ReviewNotFound, ReviewForbidden, ct);
+
+    private static (int Rating, string? Text) ValidatePayload(int rating, string? rawText)
+    {
+        if (rating is < 1 or > 5)
+            throw new ArgumentException("La valoración debe estar entre 1 y 5.");
+
+        var text = string.IsNullOrWhiteSpace(rawText) ? null : rawText.Trim();
+        if (text?.Length > MaxTextLength)
+            throw new ArgumentException($"El texto no puede superar {MaxTextLength} caracteres.");
+
+        return (rating, text);
+    }
+
+    private static void ApplyChanges(CafeteriaReview entity, int rating, string? text, DateTimeOffset updatedAt)
+    {
+        entity.Rating = rating;
+        entity.Text = text;
+        entity.UpdatedAt = updatedAt;
     }
 
     private static CafeteriaReviewDto Map(CafeteriaReview r) =>

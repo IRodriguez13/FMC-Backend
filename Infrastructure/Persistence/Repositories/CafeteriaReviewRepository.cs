@@ -4,13 +4,14 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fmc.Infrastructure.Persistence.Repositories;
 
-public class CafeteriaReviewRepository(AppDbContext db) : ICafeteriaReviewRepository
+public class CafeteriaReviewRepository(AppDbContext db)
+    : AuthorOwnedRepository<CafeteriaReview>(db), ICafeteriaReviewRepository
 {
     public async Task<IReadOnlyList<CafeteriaReview>> ListByCafeteriaIdAsync(
         Guid cafeteriaId,
         CancellationToken ct = default)
     {
-        var list = await db.CafeteriaReviews
+        var list = await Db.CafeteriaReviews
             .AsNoTracking()
             .Where(r => r.CafeteriaId == cafeteriaId)
             .ToListAsync(ct);
@@ -26,7 +27,7 @@ public class CafeteriaReviewRepository(AppDbContext db) : ICafeteriaReviewReposi
         if (ids.Count == 0)
             return new Dictionary<Guid, (double?, int)>();
 
-        var summaries = await db.CafeteriaReviews
+        var summaries = await Db.CafeteriaReviews
             .AsNoTracking()
             .Where(r => ids.Contains(r.CafeteriaId))
             .GroupBy(r => r.CafeteriaId)
@@ -42,24 +43,4 @@ public class CafeteriaReviewRepository(AppDbContext db) : ICafeteriaReviewReposi
             s => s.CafeteriaId,
             s => ((double?)Math.Round(s.Average, 1), s.Count));
     }
-
-    public Task<CafeteriaReview?> GetByAuthorAsync(
-        Guid cafeteriaId,
-        Guid authorUserId,
-        string authorRole,
-        CancellationToken ct = default) =>
-        db.CafeteriaReviews.FirstOrDefaultAsync(
-            r => r.CafeteriaId == cafeteriaId
-                 && r.AuthorUserId == authorUserId
-                 && r.AuthorRole == authorRole,
-            ct);
-
-    public async Task<CafeteriaReview> AddAsync(CafeteriaReview review, CancellationToken ct = default)
-    {
-        db.CafeteriaReviews.Add(review);
-        await db.SaveChangesAsync(ct);
-        return review;
-    }
-
-    public Task SaveChangesAsync(CancellationToken ct = default) => db.SaveChangesAsync(ct);
 }
