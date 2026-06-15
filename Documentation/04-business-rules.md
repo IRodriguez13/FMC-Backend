@@ -1,7 +1,7 @@
 # 04 — Reglas de negocio
 
-> **Última verificación:** 2026-06-02  
-> **Fuente de verdad:** `Domain/Constants/CabaServiceArea.cs`, `Application/Services/CafeteriaDiscoveryService.cs`, `Application/Services/GeoRanking.cs`, `Application/Configuration/DiscoveryOptions.cs`
+> **Última verificación:** 2026-06-09  
+> **Fuente de verdad:** `Domain/Constants/CabaServiceArea.cs`, `Application/Services/CafeteriaDiscoveryService.cs`, `Application/Services/GeoRanking.cs`, `Application/Services/CouponWeek.cs`, `Application/Configuration/DiscoveryOptions.cs`
 
 ## Área de servicio: solo CABA
 
@@ -19,12 +19,14 @@ Una cafetería aparece en `/nearby` solo si:
 
 Repo: `ICafeteriaRepository.GetListedForDiscoveryAsync`.
 
+**Propio local:** Enterprise **sí** aparece en `/nearby` (mismo criterio que el resto). No hay exclusión por `cafeteria_id`.
+
 ## Tiers consumidor (afectan descubrimiento)
 
 | Tier | Radio max default | Resultados max | Descuentos en API |
 |------|-------------------|----------------|-------------------|
 | Free | 5 km | 10 | No (`discountPercent` null) |
-| Premium | 15 km | 50 | Sí |
+| Premium | 15 km | 50 | Sí + cupones semanales en ficha |
 
 Resolución: JWT consumer → `DiscoveryTierResolver.FromHttpContext`. Anon/Enterprise viewer → **Free** (límites Free).
 
@@ -32,30 +34,45 @@ Config: `DiscoveryOptions` en `appsettings` sección `Discovery`.
 
 ## Tiers Enterprise (ponderación)
 
-| Tier | Efecto en `/nearby` |
-|------|---------------------|
-| Standard | Orden por distancia real |
-| Premium | **Boost virtual** (~2500 m por defecto) en distancia de ordenamiento |
+| Tier | Efecto en `/nearby` | Cupones del negocio |
+|------|---------------------|---------------------|
+| Standard | Orden por distancia real | No puede publicar cupones custom |
+| Premium | **Boost virtual** (~2500 m por defecto) en distancia de ordenamiento | Hasta **3 cupones/semana** |
 
 Implementación: `GeoRanking.EffectiveSortDistanceMeters` — Premium aparece más arriba a igual distancia real.
 
 **Importante:** el orden ponderado es **igual** para consumidor Free y Premium; el tier consumidor no cambia el boost Enterprise.
 
-## Enterprise viendo competencia
+## Descuentos y cupones semanales
 
-- Con JWT Enterprise en `/nearby`, se excluye **su propia** cafetería (`ExcludeCafeteriaId`).
-- Objetivo: mapa/listado muestra rivales, no el local propio.
+**Semana:** lunes 00:00 → domingo 23:59 (`America/Argentina/Buenos_Aires`) — `CouponWeek.CurrentBounds()`.
 
-## Descuentos
+| Origen | Quién lo financia | Quién lo ve |
+|--------|-------------------|-------------|
+| **Beneficio FMC** (`Cafeteria.DiscountPercent`) | Plataforma (plan consumidor Premium) | Consumidor **Premium** |
+| **Cupón del negocio** (`EnterpriseCoupon`) | Enterprise **Premium** | Consumidor **Premium** en `GET /api/cafeterias/{id}/coupons` |
 
-- Campo `Cafeteria.DiscountPercent` (0–100).
-- Solo visible en respuesta si el **viewer** es consumidor **Premium**.
+- `discountPercent` (0–100): configurable en panel enterprise; solo se **expone en API** a consumidor Premium.
+- Cupones negocio: CRUD `POST/GET/DELETE /api/enterprise/cafeteria/coupons` (crear solo Enterprise Premium).
+
+## Favoritos
+
+- Persistidos en servidor: `ConsumerFavorite` (1 fila por consumidor + cafetería).
+- API: `GET/PUT/DELETE /api/consumer/me/favorites`, `PUT /me/favorites/sync`.
+- Enterprise ve **conteo agregado** en `GET /api/enterprise/cafeteria/me/stats` (`favoriteCount` = usuarios que guardaron el local).
+
+## Reseñas y fotos
+
+- **Reseñas:** consumidor o enterprise; 1 reseña por autor y local; foto opcional.
+- **Galería del local:** solo fotos subidas por enterprise dueño; portada en `/nearby` = última foto enterprise.
+- **Avatares:** consumidor (`/api/consumer/me/avatar`) y enterprise (`/api/enterprise/cafeteria/me/avatar`).
 
 ## Seed demo
 
-`DataSeeder.EnsureCabaDemoAsync` — idempotente; corrige datos viejos (p. ej. coords Madrid) y asegura 4 cafeterías + usuarios seed en CABA. GUIDs fijos en `DataSeeder.cs`.
+`DataSeeder.EnsureCabaDemoAsync` — idempotente; corrige datos viejos (p. ej. coords Madrid), 4 cafeterías + usuarios seed en CABA, cupón demo `PALERMO-2X1`, fotos/reseñas y **avatar enterprise** (Palermo). GUIDs fijos en `DataSeeder.cs`.
 
 ## Lo que NO hace el backend
 
-- Bloquear que un Enterprise vea precios/descuentos de otros (no aplica descuentos a Enterprise viewer).
-- Favoritos, menú, reviews.
+- Bloquear que un Enterprise viewer vea `discountPercent` de otros (no aplica: viewer enterprise = límites Free, sin descuentos en API).
+- Pasarela de pago real ni canje de cupones en el local.
+- Menú de productos, notificaciones push, analytics de impresiones en mapa.

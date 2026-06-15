@@ -1,6 +1,6 @@
 # 03 — API REST
 
-> **Última verificación:** 2026-06-11  
+> **Última verificación:** 2026-06-09  
 > **Fuente de verdad:** `Api/Endpoints/FmcEndpoints.cs`, `Application/Contracts/*.cs`
 
 Base URL local: `http://127.0.0.1:5214` (Docker: mismo puerto host vía `FMC_HTTP_PORT`).
@@ -34,9 +34,9 @@ Enums JSON en **camelCase/string** (`JsonStringEnumConverter`).
 
 **Respuesta:** `NearbyCafeteriasResponse` — items con `subscriptionTier`, `distanceMeters`, `coverImageUrl`, `averageRating`, `reviewCount`, `discountPercent` (null si viewer Free).
 
-**Comportamiento con JWT Enterprise:** excluye la cafetería del claim `cafeteria_id` (solo competencia).
+**Comportamiento con JWT Enterprise:** mismo listado que anon/consumer (incluye **su propio** local si está activo). El tier consumidor del viewer sigue siendo **Free** (límites y sin `discountPercent`).
 
-Implementación: `DiscoveryTierResolver.ExcludeOwnCafeteriaId` + `NearbyQuery.ExcludeCafeteriaId`.
+**Cupones por cafetería:** `GET /{cafeteriaId}/coupons` — requiere JWT consumidor **Premium**; devuelve beneficio FMC + cupones del negocio vigentes esta semana.
 
 ---
 
@@ -48,6 +48,18 @@ Implementación: `DiscoveryTierResolver.ExcludeOwnCafeteriaId` + `NearbyQuery.Ex
 | PUT | `/me` | `{ displayName? }` | `ConsumerProfileDto` actualizado |
 | POST | `/me/avatar` | `multipart/form-data` campo `file` | `ConsumerProfileDto` con `avatarUrl` |
 | PATCH | `/tier` | `{ tier }` | `{ token, profile }` — JWT nuevo |
+
+### Favoritos — `/api/consumer/me/favorites`
+
+| Método | Ruta | Body | Respuesta |
+|--------|------|------|-----------|
+| GET | `/me/favorites` | — | `ConsumerFavoritesResponse` (ítems con nombre, cover, rating, tier) |
+| GET | `/me/favorites/ids` | — | `{ cafeteriaIds: Guid[] }` |
+| PUT | `/me/favorites/sync` | `Guid[]` (IDs locales) | merge servidor ∪ local → `{ cafeteriaIds }` |
+| PUT | `/me/favorites/{cafeteriaId}` | — | 204 — agrega favorito |
+| DELETE | `/me/favorites/{cafeteriaId}` | — | 204 — quita favorito |
+
+Persistencia: entidad `ConsumerFavorite` (1 fila por consumidor + cafetería).
 
 **`ConsumerProfileDto`:** `id`, `email`, `displayName`, `tier`, `avatarUrl` (null si sin foto).
 
@@ -63,9 +75,15 @@ Implementación: `DiscoveryTierResolver.ExcludeOwnCafeteriaId` + `NearbyQuery.Ex
 
 | Método | Ruta | Body | Respuesta |
 |--------|------|------|-----------|
-| GET | `/me` | — | `EnterpriseCafeteriaDto` |
+| GET | `/me` | — | `EnterpriseCafeteriaDto` (`avatarUrl` incluido) |
 | PUT | `/me` | datos cafetería | DTO actualizado; coords deben estar en CABA para `ListingActive` |
+| POST | `/me/avatar` | `multipart/form-data` campo `file` | DTO con `avatarUrl` |
+| DELETE | `/me/avatar` | — | DTO sin avatar |
 | PATCH | `/subscription-tier` | `{ subscriptionTier }` | `{ token, role, cafeteriaId, enterpriseSubscriptionTier }` |
+| GET | `/me/stats` | — | `EnterpriseCafeteriaStatsDto` (rating, reseñas, fotos, favoritos de usuarios, cupones semana, plan) |
+| GET | `/coupons` | — | `EnterpriseCouponDto[]` (gestión; crear requiere Premium) |
+| POST | `/coupons` | `EnterpriseCouponCreateRequest` | 201 — máx. 3 cupones/semana (Premium) |
+| DELETE | `/coupons/{couponId}` | — | 204 |
 
 ---
 

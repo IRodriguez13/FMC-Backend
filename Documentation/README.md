@@ -1,6 +1,6 @@
 # FMC — Documentación de proyecto
 
-> **Última verificación:** 2026-06-11  
+> **Última verificación:** 2026-06-09  
 > **Alcance:** backend (`fmcbackend`) + frontend integrado (`../fmcfront`)
 
 Documentación de **contexto para desarrollo y agentes**. No sustituye el README operativo de la raíz; amplía reglas de negocio, arquitectura y contratos.
@@ -12,7 +12,7 @@ Documentación de **contexto para desarrollo y agentes**. No sustituye el README
 | [01-overview.md](./01-overview.md) | Qué es FMC, repos, stack, límites del MVP |
 | [02-backend-architecture.md](./02-backend-architecture.md) | Capas .NET, persistencia, arranque, middleware |
 | [03-api-rest.md](./03-api-rest.md) | Endpoints REST, auth JWT, payloads |
-| [04-business-rules.md](./04-business-rules.md) | CABA, tiers, descubrimiento, exclusión Enterprise |
+| [04-business-rules.md](./04-business-rules.md) | CABA, tiers, descubrimiento, favoritos, cupones |
 | [05-frontend-integration.md](./05-frontend-integration.md) | Acoplamiento API ↔ UI (resumen) |
 | [06-dev-ops.md](./06-dev-ops.md) | Make, Docker, seed, smoke, troubleshooting |
 | [changelog.md](./changelog.md) | **Changelog histórico por feat** (obligatorio; regla `.cursor/rules/fmc-changelog.mdc`) |

@@ -10,6 +10,15 @@ public interface IEnterpriseCafeteriaService
 
     Task<EnterpriseCafeteriaDto> UpdateAsync(Guid enterpriseUserId, EnterpriseCafeteriaUpdateRequest request, CancellationToken ct = default);
 
+    Task<EnterpriseCafeteriaDto> UploadAvatarAsync(
+        Guid enterpriseUserId,
+        Stream content,
+        string contentType,
+        long contentLength,
+        CancellationToken ct = default);
+
+    Task<EnterpriseCafeteriaDto> DeleteAvatarAsync(Guid enterpriseUserId, CancellationToken ct = default);
+
     /// <summary>Simula cambio de plan Enterprise (Premium vs Standard); en producción vendría del cobro.</summary>
     Task<(Guid enterpriseUserId, string email, Guid cafeteriaId, EnterpriseSubscriptionTier tier)> SetEnterpriseSubscriptionTierAsync(
         Guid enterpriseUserId,
@@ -17,9 +26,18 @@ public interface IEnterpriseCafeteriaService
         CancellationToken ct = default);
 }
 
-public class EnterpriseCafeteriaService(IEnterpriseUserRepository enterpriseUsers, ICafeteriaRepository cafeterias)
-    : IEnterpriseCafeteriaService
+public class EnterpriseCafeteriaService(
+    IEnterpriseUserRepository enterpriseUsers,
+    ICafeteriaRepository cafeterias,
+    IFileStorageService storage) : IEnterpriseCafeteriaService
 {
+    private static readonly HashSet<string> AllowedAvatarTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+    };
+
     public async Task<EnterpriseCafeteriaDto> GetMineAsync(Guid enterpriseUserId, CancellationToken ct = default)
     {
         var eu = await enterpriseUsers.GetByIdAsync(enterpriseUserId, ct)
@@ -52,6 +70,37 @@ public class EnterpriseCafeteriaService(IEnterpriseUserRepository enterpriseUser
         return Map(eu);
     }
 
+    public async Task<EnterpriseCafeteriaDto> UploadAvatarAsync(
+        Guid enterpriseUserId,
+        Stream content,
+        string contentType,
+        long contentLength,
+        CancellationToken ct = default)
+    {
+        if (contentLength <= 0)
+            throw new ArgumentException("Archivo vacío.");
+        if (!AllowedAvatarTypes.Contains(contentType))
+            throw new ArgumentException("Formato no permitido. Usá JPEG, PNG o WebP.");
+
+        var eu = await enterpriseUsers.GetTrackedByIdAsync(enterpriseUserId, ct)
+            ?? throw new KeyNotFoundException("Cuenta enterprise no encontrada.");
+
+        var storageKey = await storage.SaveImageAsync(content, contentType, ct);
+        eu.AvatarStorageKey = storageKey;
+        await enterpriseUsers.SaveChangesAsync(ct);
+        return Map(eu);
+    }
+
+    public async Task<EnterpriseCafeteriaDto> DeleteAvatarAsync(Guid enterpriseUserId, CancellationToken ct = default)
+    {
+        var eu = await enterpriseUsers.GetTrackedByIdAsync(enterpriseUserId, ct)
+            ?? throw new KeyNotFoundException("Cuenta enterprise no encontrada.");
+
+        eu.AvatarStorageKey = null;
+        await enterpriseUsers.SaveChangesAsync(ct);
+        return Map(eu);
+    }
+
     public async Task<(Guid enterpriseUserId, string email, Guid cafeteriaId, EnterpriseSubscriptionTier tier)>
         SetEnterpriseSubscriptionTierAsync(Guid enterpriseUserId, EnterpriseSubscriptionTier tier, CancellationToken ct = default)
     {
@@ -73,9 +122,13 @@ public class EnterpriseCafeteriaService(IEnterpriseUserRepository enterpriseUser
         return LocationValidation.IsWithinCabaServiceArea(latitude, longitude);
     }
 
-    private static EnterpriseCafeteriaDto Map(EnterpriseUser eu)
+    private EnterpriseCafeteriaDto Map(EnterpriseUser eu)
     {
         var c = eu.Cafeteria;
+        string? avatarUrl = string.IsNullOrWhiteSpace(eu.AvatarStorageKey)
+            ? null
+            : storage.GetPublicUrl(eu.AvatarStorageKey);
+
         return new EnterpriseCafeteriaDto(
             c.Id,
             c.Name,
@@ -85,6 +138,7 @@ public class EnterpriseCafeteriaService(IEnterpriseUserRepository enterpriseUser
             c.Longitude,
             eu.SubscriptionTier,
             c.ListingActive,
-            c.DiscountPercent);
+            c.DiscountPercent,
+            avatarUrl);
     }
 }

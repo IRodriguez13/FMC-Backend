@@ -62,6 +62,8 @@ Consulta: `sqlite3 docker-data/fmc.db`
 |---------|----------------|--------|
 | `/nearby` vacío | Coords fuera CABA o BD sin seed CABA | `make reset-db && make up`; front usa fallback Obelisco |
 | 404 `/consumer/me` tras reset | JWT viejo en localStorage | Logout o borrar storage; re-login seed |
+| 404 en stats/cupones tras pull | Backend sin reiniciar o sin migrate | `make migrate && make run`; recargar front |
+| «Sesión venció» con sesión activa | 404 de ruta vieja interpretado mal (corregido en front) | Reiniciar backend; actualizar front |
 | 500 + TaskCanceled en logs | Fetch abortado (StrictMode) o cliente cerró | Normal tras fix middleware; ignorar si 499 |
 | `rm docker-data`: permiso denegado | `sudo make` previo | `make fix-docker-data-perms` |
 | Mapa gris | CSS altura / react-leaflet | Ver `index.css` `.fmc-map-shell` |

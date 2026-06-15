@@ -1,4 +1,5 @@
 using Fmc.Application.Configuration;
+using Fmc.Application.Services;
 using Fmc.Domain.Constants;
 using Fmc.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -70,7 +71,32 @@ public static class DataSeeder
 
         await db.SaveChangesAsync();
 
+        await EnsureSeedCouponsAsync(db, now);
         await EnsureMediaDemoAsync(db, media ?? new MediaOptions(), now);
+        await EnsureEnterpriseAvatarsAsync(db, media ?? new MediaOptions());
+    }
+
+    private static async Task EnsureSeedCouponsAsync(AppDbContext db, DateTimeOffset now)
+    {
+        var (weekStart, weekEnd) = CouponWeek.CurrentBounds(now);
+        var existing = await db.EnterpriseCoupons
+            .AnyAsync(c => c.CafeteriaId == CafePremiumId && c.Code == "PALERMO-2X1");
+        if (existing) return;
+
+        db.EnterpriseCoupons.Add(new EnterpriseCoupon
+        {
+            Id = Guid.Parse("e1111111-1111-4111-8111-111111111101"),
+            CafeteriaId = CafePremiumId,
+            Kind = CouponKind.TwoForOne,
+            Title = "2x1 en cappuccino",
+            Description = "Válido de lunes a domingo en barra.",
+            Code = "PALERMO-2X1",
+            ValidFrom = weekStart,
+            ValidUntil = weekEnd,
+            IsActive = true,
+            CreatedAt = now,
+        });
+        await db.SaveChangesAsync();
     }
 
     private static async Task EnsureMediaDemoAsync(AppDbContext db, MediaOptions media, DateTimeOffset now)
@@ -100,6 +126,28 @@ public static class DataSeeder
         {
             await UpsertReviewAsync(db, seed.ReviewId, seed.CafeteriaId, seed.AuthorUserId, seed.AuthorRole,
                 seed.Rating, seed.Text, seed.PhotoStorageKey, now.AddDays(-seed.DaysAgo));
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    private static readonly (Guid EnterpriseUserId, string AvatarKey)[] SeedEnterpriseAvatars =
+    [
+        (EnterprisePremiumId, "seed-palermo-barra.jpg"),
+        (EnterpriseRecoletaId, "seed-recoleta-detalle.jpg"),
+    ];
+
+    private static async Task EnsureEnterpriseAvatarsAsync(AppDbContext db, MediaOptions media)
+    {
+        var uploadRoot = media.UploadRoot;
+        var seedAssetsRoot = SeedImageFiles.ResolveSeedAssetsRoot(uploadRoot);
+
+        foreach (var (enterpriseUserId, avatarKey) in SeedEnterpriseAvatars)
+        {
+            SeedImageFiles.EnsureOnDisk(uploadRoot, avatarKey, seedAssetsRoot);
+            var user = await db.EnterpriseUsers.FindAsync(enterpriseUserId);
+            if (user is null) continue;
+            user.AvatarStorageKey = avatarKey;
         }
 
         await db.SaveChangesAsync();

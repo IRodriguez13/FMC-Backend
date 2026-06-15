@@ -27,6 +27,8 @@ public static class DependencyInjection
         services.AddScoped<ICafeteriaReviewRepository, CafeteriaReviewRepository>();
         services.AddScoped<IConsumerUserRepository, ConsumerUserRepository>();
         services.AddScoped<IEnterpriseUserRepository, EnterpriseUserRepository>();
+        services.AddScoped<IConsumerFavoriteRepository, ConsumerFavoriteRepository>();
+        services.AddScoped<IEnterpriseCouponRepository, EnterpriseCouponRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         services.AddSingleton<IPasswordHasher, BcryptPasswordHasher>();

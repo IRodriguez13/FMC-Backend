@@ -16,6 +16,10 @@ public static class DependencyInjection
         services.AddScoped<ICafeteriaDiscoveryService, CafeteriaDiscoveryService>();
         services.AddScoped<ICafeteriaPhotoService, CafeteriaPhotoService>();
         services.AddScoped<ICafeteriaReviewService, CafeteriaReviewService>();
+        services.AddScoped<IConsumerFavoriteService, ConsumerFavoriteService>();
+        services.AddScoped<IEnterpriseCouponService, EnterpriseCouponService>();
+        services.AddScoped<ICafeteriaCouponService, CafeteriaCouponService>();
+        services.AddScoped<IEnterpriseStatsService, EnterpriseStatsService>();
         return services;
     }
 }

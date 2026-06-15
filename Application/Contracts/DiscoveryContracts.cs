@@ -31,5 +31,5 @@ public record NearbyQuery(
     double Longitude,
     double? RadiusKm,
     ConsumerTier ViewerTier,
-    /// <summary>Si el viewer es Enterprise, su cafetería no debe listarse (competencia).</summary>
+    /// <summary>Cafetería opcional a excluir del listado (filtro interno; no se aplica por rol).</summary>
     Guid? ExcludeCafeteriaId = null);

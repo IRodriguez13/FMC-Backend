@@ -65,8 +65,7 @@ public static class FmcEndpoints
                 CancellationToken ct) =>
             {
                 var tier = DiscoveryTierResolver.FromHttpContext(http);
-                var excludeId = DiscoveryTierResolver.ExcludeOwnCafeteriaId(http);
-                var query = new NearbyQuery(lat, lng, radiusKm, tier, excludeId);
+                var query = new NearbyQuery(lat, lng, radiusKm, tier);
                 var result = await discoverySvc.GetNearbyAsync(query, ct);
                 return Results.Ok(result);
             })
@@ -129,6 +128,24 @@ public static class FmcEndpoints
                 CancellationToken ct) =>
             {
                 var result = await reviews.ListAsync(cafeteriaId, ct);
+                return Results.Ok(result);
+            })
+            .AllowAnonymous();
+
+        discovery.MapGet("/{cafeteriaId:guid}/coupons", async (
+                Guid cafeteriaId,
+                ICafeteriaCouponService coupons,
+                HttpContext http,
+                CancellationToken ct) =>
+            {
+                ConsumerTier? viewerTier = null;
+                if (http.User.Identity?.IsAuthenticated == true
+                    && http.User.IsInRole(AuthRoles.Consumer))
+                {
+                    viewerTier = DiscoveryTierResolver.FromHttpContext(http);
+                }
+
+                var result = await coupons.GetAvailableAsync(cafeteriaId, viewerTier, ct);
                 return Results.Ok(result);
             })
             .AllowAnonymous();
@@ -276,6 +293,50 @@ public static class FmcEndpoints
                 return Results.Ok(new ConsumerTierPatchResponse(token, dto));
             });
 
+        consumer.MapGet("/me/favorites", async (HttpContext http, IConsumerFavoriteService favorites, CancellationToken ct) =>
+        {
+            var id = http.User.RequireUserId();
+            return Results.Ok(await favorites.ListAsync(id, ct));
+        });
+
+        consumer.MapGet("/me/favorites/ids", async (HttpContext http, IConsumerFavoriteService favorites, CancellationToken ct) =>
+        {
+            var id = http.User.RequireUserId();
+            return Results.Ok(await favorites.ListIdsAsync(id, ct));
+        });
+
+        consumer.MapPut("/me/favorites/sync", async (
+                IReadOnlyList<Guid> body,
+                HttpContext http,
+                IConsumerFavoriteService favorites,
+                CancellationToken ct) =>
+            {
+                var id = http.User.RequireUserId();
+                return Results.Ok(await favorites.SyncAsync(id, body, ct));
+            });
+
+        consumer.MapPut("/me/favorites/{cafeteriaId:guid}", async (
+                Guid cafeteriaId,
+                HttpContext http,
+                IConsumerFavoriteService favorites,
+                CancellationToken ct) =>
+            {
+                var id = http.User.RequireUserId();
+                await favorites.AddAsync(id, cafeteriaId, ct);
+                return Results.NoContent();
+            });
+
+        consumer.MapDelete("/me/favorites/{cafeteriaId:guid}", async (
+                Guid cafeteriaId,
+                HttpContext http,
+                IConsumerFavoriteService favorites,
+                CancellationToken ct) =>
+            {
+                var id = http.User.RequireUserId();
+                await favorites.RemoveAsync(id, cafeteriaId, ct);
+                return Results.NoContent();
+            });
+
         var enterprise = app.MapGroup("/api/enterprise/cafeteria").RequireAuthorization(policy => policy.RequireRole(AuthRoles.Enterprise)).WithTags("Enterprise — cafetería");
 
         enterprise.MapGet("/me", async (HttpContext http, IEnterpriseCafeteriaService svc, CancellationToken ct) =>
@@ -292,6 +353,30 @@ public static class FmcEndpoints
             return Results.Ok(dto);
         });
 
+        enterprise.MapPost("/me/avatar", async (
+                IFormFile file,
+                HttpContext http,
+                IEnterpriseCafeteriaService svc,
+                CancellationToken ct) =>
+            {
+                if (file is null || file.Length == 0)
+                    throw new ArgumentException("Archivo vacío.");
+
+                var id = http.User.RequireUserId();
+                await using var stream = file.OpenReadStream();
+                var dto = await svc.UploadAvatarAsync(id, stream, file.ContentType, file.Length, ct);
+                return Results.Ok(dto);
+            })
+            .RequireRateLimiting("upload")
+            .DisableAntiforgery();
+
+        enterprise.MapDelete("/me/avatar", async (HttpContext http, IEnterpriseCafeteriaService svc, CancellationToken ct) =>
+        {
+            var id = http.User.RequireUserId();
+            var dto = await svc.DeleteAvatarAsync(id, ct);
+            return Results.Ok(dto);
+        });
+
         enterprise.MapPatch("/subscription-tier", async (
                 EnterpriseSubscriptionTierUpdateRequest body,
                 HttpContext http,
@@ -303,6 +388,40 @@ public static class FmcEndpoints
                 var r = await svc.SetEnterpriseSubscriptionTierAsync(id, body.SubscriptionTier, ct);
                 var token = jwt.CreateEnterpriseToken(r.enterpriseUserId, r.email, r.cafeteriaId, r.tier);
                 return Results.Ok(new AuthTokenResponse(token, AuthRoles.Enterprise, null, r.cafeteriaId, r.tier));
+            });
+
+        enterprise.MapGet("/me/stats", async (HttpContext http, IEnterpriseStatsService stats, CancellationToken ct) =>
+        {
+            var id = http.User.RequireUserId();
+            return Results.Ok(await stats.GetMineAsync(id, ct));
+        });
+
+        enterprise.MapGet("/coupons", async (HttpContext http, IEnterpriseCouponService coupons, CancellationToken ct) =>
+        {
+            var id = http.User.RequireUserId();
+            return Results.Ok(await coupons.ListMineAsync(id, ct));
+        });
+
+        enterprise.MapPost("/coupons", async (
+                EnterpriseCouponCreateRequest body,
+                HttpContext http,
+                IEnterpriseCouponService coupons,
+                CancellationToken ct) =>
+            {
+                var id = http.User.RequireUserId();
+                var dto = await coupons.CreateAsync(id, body, ct);
+                return Results.Created($"/api/enterprise/cafeteria/coupons/{dto.Id}", dto);
+            });
+
+        enterprise.MapDelete("/coupons/{couponId:guid}", async (
+                Guid couponId,
+                HttpContext http,
+                IEnterpriseCouponService coupons,
+                CancellationToken ct) =>
+            {
+                var id = http.User.RequireUserId();
+                await coupons.DeleteAsync(id, couponId, ct);
+                return Results.NoContent();
             });
 
         return app;

@@ -10,6 +10,8 @@ public class EnterpriseUser
     /// <summary>Premium mejora la ponderación en listados frente a Enterprise Standard.</summary>
     public EnterpriseSubscriptionTier SubscriptionTier { get; set; }
 
+    public string? AvatarStorageKey { get; set; }
+
     public Guid CafeteriaId { get; set; }
     public Cafeteria Cafeteria { get; set; } = null!;
     public DateTimeOffset CreatedAt { get; set; }

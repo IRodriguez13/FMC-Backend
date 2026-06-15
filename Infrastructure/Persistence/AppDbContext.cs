@@ -10,6 +10,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Cafeteria> Cafeterias => Set<Cafeteria>();
     public DbSet<CafeteriaPhoto> CafeteriaPhotos => Set<CafeteriaPhoto>();
     public DbSet<CafeteriaReview> CafeteriaReviews => Set<CafeteriaReview>();
+    public DbSet<ConsumerFavorite> ConsumerFavorites => Set<ConsumerFavorite>();
+    public DbSet<EnterpriseCoupon> EnterpriseCoupons => Set<EnterpriseCoupon>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -32,6 +34,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.HasIndex(x => x.Email).IsUnique();
             e.Property(x => x.Email).HasMaxLength(256);
+            e.Property(x => x.AvatarStorageKey).HasMaxLength(260);
             e.HasOne(x => x.Cafeteria)
                 .WithOne(c => c.EnterpriseUser)
                 .HasForeignKey<EnterpriseUser>(x => x.CafeteriaId)
@@ -57,6 +60,29 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.PhotoStorageKey).HasMaxLength(260);
             e.HasIndex(x => x.CafeteriaId);
             e.HasIndex(x => new { x.CafeteriaId, x.AuthorUserId, x.AuthorRole }).IsUnique();
+            e.HasOne(x => x.Cafeteria)
+                .WithMany()
+                .HasForeignKey(x => x.CafeteriaId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ConsumerFavorite>(e =>
+        {
+            e.HasIndex(x => x.ConsumerUserId);
+            e.HasIndex(x => new { x.ConsumerUserId, x.CafeteriaId }).IsUnique();
+            e.HasOne(x => x.Cafeteria)
+                .WithMany()
+                .HasForeignKey(x => x.CafeteriaId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<EnterpriseCoupon>(e =>
+        {
+            e.Property(x => x.Code).HasMaxLength(32);
+            e.Property(x => x.Title).HasMaxLength(120);
+            e.Property(x => x.Description).HasMaxLength(500);
+            e.HasIndex(x => x.CafeteriaId);
+            e.HasIndex(x => new { x.CafeteriaId, x.Code }).IsUnique();
             e.HasOne(x => x.Cafeteria)
                 .WithMany()
                 .HasForeignKey(x => x.CafeteriaId)

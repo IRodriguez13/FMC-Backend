@@ -6,11 +6,76 @@ Find my coffee (**FMC**): API en `Api/` (`Fmc.Api.csproj`), solución `Fmc.sln`,
 
 ## Reglas de negocio (resumen)
 
-- **Área de servicio:** FMC opera solo en **CABA** (`CabaServiceArea`). `/nearby` rechaza consultas fuera del bounding box; altas/ediciones de cafetería deben tener coordenadas dentro de CABA para activar listado.
-- Solo aparecen cafeterías **registradas** por cuenta Enterprise con **`ListingActive = true`** (listado completado).
-- **Enterprise Premium** recibe mayor ponderación en `/nearby` frente a Enterprise Standard; consumidor Free y Premium ven el **mismo orden ponderado** (la ponderación no depende del tier del consumidor).
-- **`discountPercent`** en cada ítem: solo se informa si el consumidor es **Premium**; usuarios Free no ven descuentos en la API.
-- Cambio de plan Enterprise simulado: `PATCH /api/enterprise/cafeteria/subscription-tier` (devuelve JWT nuevo).
+Referencia rápida. Detalle y fuentes en [`Documentation/04-business-rules.md`](./Documentation/04-business-rules.md).
+
+### Área y listado
+
+| Regla | Comportamiento |
+|-------|----------------|
+| **Zona** | Solo **CABA** (`CabaServiceArea`). `/nearby` fuera del bbox → 400. Alta/edición enterprise: coords en CABA para `ListingActive`. |
+| **Visible en Explorar/Mapa** | Cafetería con cuenta **Enterprise** y **`ListingActive = true`** (nombre válido, coords ≠ 0, dentro de CABA). |
+| **Propio local** | Enterprise **sí** ve su cafetería en `/nearby` (mismo listado que el resto). |
+
+### Tiers consumidor
+
+| Tier | Radio máx. | Resultados máx. | Beneficios |
+|------|------------|-----------------|------------|
+| **Free** | 5 km | 10 | Sin `discountPercent` en API; sin cupones |
+| **Premium** | 15 km | 50 | Ve `%` del local; cupones semanales (ver abajo) |
+
+Sin JWT consumidor (anon o enterprise en mapa) → límites **Free**. Config: `DiscoveryOptions` en `appsettings`.
+
+### Tiers Enterprise
+
+| Tier | Efecto en `/nearby` | Cupones del negocio |
+|------|---------------------|---------------------|
+| **Standard** | Orden por distancia real | No puede publicar cupones custom |
+| **Premium** | Boost virtual ~**2500 m** en ordenamiento | Hasta **3 cupones/semana** (% , monto fijo ARS o 2x1) |
+
+El boost Enterprise es **igual** para viewers consumidor Free y Premium.
+
+### Descuentos y cupones semanales
+
+**Semana:** lunes 00:00 → domingo 23:59 (`America/Argentina/Buenos_Aires`).
+
+| Origen | Quién lo financia | Quién lo ve | Condición |
+|--------|-------------------|-------------|-----------|
+| **Beneficio FMC** | Plataforma (plan consumidor Premium) | Consumidor **Premium** | `Cafeteria.DiscountPercent` > 0 |
+| **Cupón del negocio** | Enterprise **Premium** | Consumidor **Premium** | Publicado por el dueño esta semana |
+
+- `discountPercent` (0–100): cualquier enterprise lo configura en su panel; solo se **expone en API** a consumidor Premium.
+- Cupones del negocio: CRUD en `POST/GET/DELETE /api/enterprise/cafeteria/coupons` (solo enterprise Premium).
+- Listado público para ficha: `GET /api/cafeterias/{id}/coupons` (requiere JWT consumidor Premium para ver datos).
+
+### Favoritos
+
+- Persistidos en servidor: `ConsumerFavorite` (1 fila por consumidor + cafetería).
+- API: `GET/PUT/DELETE /api/consumer/me/favorites`, `PUT /me/favorites/sync` (merge al login).
+- Enterprise ve **conteo** en `GET /api/enterprise/cafeteria/me/stats`.
+
+### Contenido y perfiles
+
+| Recurso | Regla |
+|---------|--------|
+| **Galería del local** | Solo fotos subidas por **enterprise** dueño; portada = última foto enterprise |
+| **Reseñas** | Consumidor o enterprise; 1 reseña por autor y local; foto opcional en reseña |
+| **Avatar consumidor** | `POST/DELETE /api/consumer/me/avatar`; persiste en storage |
+| **Avatar enterprise** | `POST/DELETE /api/enterprise/cafeteria/me/avatar`; foto del negocio en navbar y panel |
+
+### Métricas enterprise
+
+`GET /api/enterprise/cafeteria/me/stats`: valoración, reseñas, fotos, favoritos, cupones activos esta semana, plan y vigencia semanal.
+
+### Cambio de plan (demo)
+
+| Acción | Endpoint | Efecto |
+|--------|----------|--------|
+| Consumidor → Premium | `PATCH /api/consumer/tier` | JWT nuevo con tier |
+| Enterprise → Premium | `PATCH /api/enterprise/cafeteria/subscription-tier` | JWT nuevo + boost/cupones |
+
+### Lo que este backend no modela
+
+Pasarela de pago real, canje/redención de cupones en local, menú, notificaciones push, analytics de impresiones en mapa.
 
 ## Seed demo (BD vacía tras migraciones)
 
@@ -32,11 +97,9 @@ Cuatro cafeterías seed en barrios de **CABA** (Palermo, San Telmo, Recoleta, Ca
 ## ¿Qué puedes probar en la API? (no es CRUD completo de entidades)
 
 - **Auth / alta**: registro y login de consumidor y Enterprise (`/api/auth/...`).
-- **Consumidor** (JWT consumidor): `GET /api/consumer/me`, `PATCH /api/consumer/tier` (cambio de plan simulado + JWT nuevo). No hay DELETE ni PUT de perfil genérico.
-- **Enterprise** (JWT Enterprise): `GET` / `PUT` de la cafetería propia (`/api/enterprise/cafeteria/me`), `PATCH .../subscription-tier` (plan Enterprise simulado).
-- **Descubrimiento**: `GET /api/cafeterias/nearby` (anon o con JWT consumidor para límites Premium y descuentos).
-
-Valoraciones o CRUD administrativo de todas las tablas **no** están en este backend; la demo se prueba con **Swagger**, **`make smoke`** o scripts propios contra esos endpoints.
+- **Consumidor** (JWT consumidor): perfil, avatar, favoritos, tier Premium.
+- **Enterprise** (JWT Enterprise): cafetería propia, fotos, cupones (Premium), métricas, plan Enterprise.
+- **Descubrimiento**: `/nearby`, fotos/reseñas/cupones por cafetería.
 
 ### Puerto ocupado (`address already in use`)
 

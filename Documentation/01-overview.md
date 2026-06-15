@@ -1,18 +1,18 @@
 # 01 — Visión general
 
-> **Última verificación:** 2026-06-02  
-> **Fuente de verdad:** `README.md`, `Fmc.sln`, `FindMyCoffee-Frontend/package.json`
+> **Última verificación:** 2026-06-09  
+> **Fuente de verdad:** `README.md`, `Fmc.sln`, `../fmcfront/package.json`
 
 ## Qué es Find My Coffee (FMC)
 
-Plataforma para **descubrir cafeterías en CABA** registradas por cuentas **Enterprise**, con consumidores **Free/Premium** y planes **Enterprise Standard/Premium** que afectan visibilidad en listados.
+Plataforma para **descubrir cafeterías en CABA** registradas por cuentas **Enterprise**, con consumidores **Free/Premium** y planes **Enterprise Standard/Premium** que afectan visibilidad en listados, cupones semanales y métricas del negocio.
 
 ## Repositorios
 
 | Repo | Ruta típica | Rol |
 |------|-------------|-----|
 | **fmcbackend** | `/home/ivanr013/Escritorio/fmcbackend` | API .NET 8, SQLite, JWT, GraphQL opcional |
-| **FindMyCoffee-Frontend** | `../FindMyCoffee-Frontend` (hermano) | SPA React 18 + Vite + Tailwind |
+| **fmcfront** | `../fmcfront` (hermano) | SPA React 18 + Vite + Tailwind |
 
 El workspace Cursor actual suele ser **fmcbackend**; el front vive en directorio hermano, no submódulo.
 
@@ -29,14 +29,21 @@ El workspace Cursor actual suele ser **fmcbackend**; el front vive en directorio
 
 - Vite, React 18, React Router, Tailwind
 - Leaflet + react-leaflet 4.x (mapa OSM/CARTO, sin API key)
-- Proxy dev: `/api` → `http://127.0.0.1:5214`
+- Proxy dev: `/api` y `/media` → backend local
 
 ## Fuera de alcance (MVP actual)
 
-- Menú, reseñas, valoraciones reales en API
-- CRUD admin de todas las entidades
-- Favoritos en backend (solo `localStorage` en front)
-- Pagos reales (cambio de tier simulado vía PATCH + JWT nuevo)
+- Menú de productos
+- Pasarela de pago real (checkout simula tier vía PATCH + JWT nuevo)
+- Canje/redención de cupones en el local
+- Notificaciones push, analytics de impresiones en mapa
+
+## Incluido en el MVP actual
+
+- Auth consumer/enterprise, `/nearby`, fotos y reseñas por cafetería
+- Favoritos en servidor + sync al login (cache local en front)
+- Cupones semanales (enterprise Premium + beneficio FMC)
+- Métricas enterprise (`/me/stats`), avatares consumer y enterprise
 
 ## Usuarios demo
 

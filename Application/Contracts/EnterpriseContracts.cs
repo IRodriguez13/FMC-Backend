@@ -11,7 +11,8 @@ public record EnterpriseCafeteriaDto(
     double Longitude,
     EnterpriseSubscriptionTier SubscriptionTier,
     bool ListingActive,
-    int DiscountPercent);
+    int DiscountPercent,
+    string? AvatarUrl = null);
 
 public record EnterpriseCafeteriaUpdateRequest(
     string Name,

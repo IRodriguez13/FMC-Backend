@@ -1,10 +1,42 @@
 # Changelog histórico — FMC Backend
 
 > **Fuente de verdad del código:** Git. Registro legible de feats y cambios de producto.  
-> **Última verificación:** 2026-06-11  
+> **Última verificación:** 2026-06-09  
 > **Reglas del proyecto:** `.cursor/rules/fmc-changelog.mdc`, `.cursor/rules/fmc-unit-tests.mdc`
 
 Entradas **más recientes arriba**.
+
+---
+
+## 2026-06-09 — Favoritos server, métricas, cupones, doc sync
+
+**Pedido:** Oleada roadmap (favoritos, stats enterprise, cupones semanales, visibilidad propio local) + sincronizar `Documentation/`.  
+**Alcance:** backend, frontend (doc), seed
+
+### Cambios backend
+
+- `ConsumerFavorite` + API `GET/PUT/DELETE /me/favorites`, `PUT /me/favorites/sync`.
+- `EnterpriseCoupon` + semana AR (`CouponWeek`); CRUD `/api/enterprise/cafeteria/coupons` (Premium).
+- `GET /api/enterprise/cafeteria/me/stats`; avatar enterprise `POST/DELETE /me/avatar`.
+- `/nearby`: **sin** exclusión del local propio enterprise.
+- Fix SQLite: `CountActiveForWeekAsync` evalúa vigencia en memoria.
+- Seed: cupón `PALERMO-2X1`, avatar enterprise Palermo (`seed-palermo-barra.jpg`).
+- Tests: **69/69 OK**.
+
+### API nueva / ampliada
+
+| Método | Ruta |
+|--------|------|
+| GET/PUT/DELETE | `/api/consumer/me/favorites` (+ `/ids`, `/sync`) |
+| GET | `/api/cafeterias/{id}/coupons` (consumidor Premium) |
+| GET | `/api/enterprise/cafeteria/me/stats` |
+| GET/POST/DELETE | `/api/enterprise/cafeteria/coupons` |
+| POST/DELETE | `/api/enterprise/cafeteria/me/avatar` |
+
+### Documentación
+
+- `03-api-rest.md`, `04-business-rules.md`, `05-frontend-integration.md`, `01-overview.md` alineados con código.
+- Front `Documentation/` sincronizado (favoritos híbridos, `/nearby`, métricas).
 
 ---
 
