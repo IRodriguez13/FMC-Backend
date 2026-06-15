@@ -1,100 +1,90 @@
 # Changelog histórico — FMC Backend
 
-> **Fuente de verdad del código:** Git. Este archivo es el registro legible de feats y cambios de producto.  
-> **Última actualización:** 2026-06-11  
+> **Fuente de verdad del código:** Git. Registro legible de feats y cambios de producto.  
+> **Última verificación:** 2026-06-11  
 > **Reglas del proyecto:** `.cursor/rules/fmc-changelog.mdc`, `.cursor/rules/fmc-unit-tests.mdc`
 
-Entradas **más recientes arriba**. Entradas retroactivas reconstruidas desde `git log`.
+Entradas **más recientes arriba**.
 
 ---
 
-## 2026-06-11 — Perfil consumidor, fotos seed, migraciones y demo deploy
+## 2026-06-11 — Demo MVP funcional (cierre de oleada)
 
-**Commit:** *(este commit)*  
-**Pedido:** Perfil editable, fotos Palermo, descuentos Premium, `make migrate`, tests y documentación.  
-**Alcance:** backend, frontend (`fmcfront`), docs, tests
+**Commits:** `eccdf28`, `4615755`, `5d8947f`, `96656ca`, `6cafd6c`  
+**Pedido:** Demo usable end-to-end — fotos, perfil, descuentos Premium, migraciones, deploy.  
+**Alcance:** backend, docs, ops
 
-### Backend
-- `ConsumerUser`: `DisplayName`, `AvatarStorageKey`; migración `ConsumerProfileFields`.
-- API: `PUT /api/consumer/me`, `POST /api/consumer/me/avatar`.
-- Seed fotos: assets `.jpg`, cleanup PNG legacy, redirect `/media/seed-*.png` → `.jpg`.
-- `make migrate` / `migrations-list`; `make run` ejecuta migrate antes del API.
-- `/nearby`: `coverImageUrl`, ratings batch.
-- Tests: `ConsumerProfileServiceTests` (10).
+### Estado funcional (demo)
 
-### Frontend
-- Perfil: editar nombre, subir avatar; email solo lectura.
-- Dark mode, descuentos solo Premium, fotos (`CafeCoverImage`, `resolveMediaUrl`).
-- Vitest: `mediaUrl.test.js`, `cafeteriaMapper.test.js` (11 tests).
+| Área | Comportamiento |
+|------|----------------|
+| Auth | Register/login consumer y enterprise; seed CABA |
+| `/nearby` | Cover, rating, descuentos solo consumer Premium |
+| Medios | Seed `.jpg`, redirect PNG legacy, `/media/` |
+| Perfil | `GET/PUT /me`, `POST /me/avatar`, `PATCH /tier` |
+| Fotos/reseñas | CRUD author-owned por cafetería |
+| Ops | `make migrate`, `make run`, Docker, health, rate limit |
+
+### Cambios clave
+
+- Migración `ConsumerProfileFields` (`DisplayName`, `AvatarStorageKey`).
+- `SeedImageFiles`: assets JPEG, cleanup PNG corruptos, redirect en pipeline.
+- `make migrate` / `migrations-list`; `make run` aplica migrate antes del API.
+- Discovery: `coverImageUrl`, ratings batch en `/nearby`.
+- Demo: CORS env, rate limit auth/upload, `appsettings.Production`, Swagger guard.
+- Reseñas CRUD author-owned; fix hash en seed.
+- Logging EF design-time: `HostAbortedException` ya no loguea como Fatal.
+
+### API nueva / ampliada
+
+| Método | Ruta | Notas |
+|--------|------|-------|
+| PUT | `/api/consumer/me` | `{ displayName }` |
+| POST | `/api/consumer/me/avatar` | multipart `file` |
+| GET | `/api/cafeterias/{id}/photos` | listado |
+| POST | `/api/cafeterias/{id}/photos` | upload |
+| GET/POST/PATCH/DELETE | `/api/cafeterias/{id}/reviews` | CRUD author-owned |
 
 ### Validación
-- `dotnet test`: 55/55 OK
-- `npm test` (fmcfront): 11/11 OK
-- `npm run build` (fmcfront): OK
+
+- `dotnet test`: **59/59 OK**
+- `make migrate`: BD al día (mensaje `HostAbortedException` en consola = ruido EF, no error)
+- Smoke manual: nearby con cover, media `/media/seed-*.jpg` 200
 
 ---
 
 ## 2026-06-09 — Redirección raíz `/` → Swagger en Development
 
-**Commit:** *(pendiente de commit)*  
-**Pedido:** `make run` reporta el puerto pero abrir la URL raíz devuelve 404.  
+**Commit:** `96656ca` (incluido en oleada perfil-demo)  
+**Pedido:** Raíz `/` devolvía 404 en dev.  
 **Alcance:** backend, ops
 
 ### Cambios
-- `GET /` redirige a `/swagger/index.html` cuando `ASPNETCORE_ENVIRONMENT=Development`.
-- `make run` muestra URLs útiles (Swagger, GraphQL, nearby) y aviso si se abre solo la raíz.
+
+- `GET /` → redirect `/swagger/index.html` en Development.
+- `make run` imprime URLs útiles (Swagger, GraphQL, nearby).
 
 ### Validación
-- `curl http://127.0.0.1:<puerto>/` → 302 a Swagger (Development)
-- `curl .../swagger/index.html` → 200
-- `dotnet test`: 45/45 OK
 
----
-
-## 2026-06-09 — Política de tests obligatorios por feat
-
-**Commit:** *(pendiente de commit)*  
-**Pedido:** Todas las nuevas feats deben tener sus respectivos tests.  
-**Alcance:** docs, ops (regla Cursor)
-
-### Cambios
-- Regla `.cursor/rules/fmc-unit-tests.mdc` (`alwaysApply: true`).
-- Alcance mínimo, convenciones xUnit/Moq, validación en changelog.
-- Tests retroactivos para feat fotos/reseñas (ver entrada siguiente).
-
-### Validación
-- `dotnet test`: 45/45 OK
+- `curl /` → 302 Swagger; `dotnet test` OK
 
 ---
 
 ## 2026-06-09 — Fotos locales y reseñas por cafetería
 
-**Commit:** *(pendiente de commit)*  
-**Pedido:** Usuarios consumer y enterprise, en cualquier plan, pueden subir fotos del local y reseñas.  
+**Commit:** `6cafd6c` — `feat(media): fotos locales, reseñas y reglas de proyecto`  
+**Pedido:** Consumer y enterprise suben fotos y reseñas en cualquier plan.  
 **Alcance:** backend
 
 ### Cambios
-- Entidades `CafeteriaPhoto` y `CafeteriaReview` con autor (`AuthorUserId`, `AuthorRole`).
-- Almacenamiento local de imágenes (`uploads/`, servidas en `/media/`).
-- Servicios `CafeteriaPhotoService` y `CafeteriaReviewService` sin restricción por tier/plan.
-- Migración EF `CafeteriaPhotosAndReviews`.
-- Config `Media` en `appsettings.json` (tamaño máx. 5 MB, JPEG/PNG/WebP).
-- Tests: `CafeteriaPhotoServiceTests` (8), `CafeteriaReviewServiceTests` (8).
 
-### API / contrato
-| Método | Ruta | Auth |
-|--------|------|------|
-| `GET` | `/api/cafeterias/{id}/photos` | No |
-| `POST` | `/api/cafeterias/{id}/photos` | JWT consumer o enterprise |
-| `GET` | `/api/cafeterias/{id}/reviews` | No |
-| `POST` | `/api/cafeterias/{id}/reviews` | JWT consumer o enterprise |
-
-- Reseña: rating 1–5, texto opcional; una por autor/rol por cafetería (POST actualiza).
-- Foto: `multipart/form-data`, campo `file`.
+- Entidades `CafeteriaPhoto`, `CafeteriaReview`.
+- `uploads/` servido en `/media/`; límite 5 MB; JPEG/PNG/WebP.
+- Tests: `CafeteriaPhotoServiceTests`, `CafeteriaReviewServiceTests`.
 
 ### Validación
-- `dotnet build`: OK
-- `dotnet test`: 45/45 OK (`CafeteriaPhotoServiceTests`, `CafeteriaReviewServiceTests`)
+
+- `dotnet test`: OK
 
 ---
 
@@ -104,109 +94,51 @@ Entradas **más recientes arriba**. Entradas retroactivas reconstruidas desde `g
 **Alcance:** backend, docs, ops
 
 ### Cambios
-- Área de servicio CABA (`CabaServiceArea`) + validación en altas y `/nearby`.
-- Seed idempotente CABA con GUIDs fijos (`DataSeeder.EnsureCabaDemoAsync`).
-- Enterprise excluido de `/nearby` para su propia cafetería (`ExcludeCafeteriaId`).
-- Ponderación ranking Enterprise Premium; descuentos solo visibles a consumer Premium.
-- Middleware de errores: 4xx warning; cancelaciones cliente 499/504.
-- SQLite WAL, `Cache=Shared`, `busy_timeout`.
-- Serilog simplificado; sin HTTPS redirect en Development.
-- Makefile: `reset-db`, `fix-docker-data-perms`.
-- Documentación inicial en `Documentation/` (overview, arquitectura, API, reglas, dev-ops).
+
+- Área CABA, seed idempotente, Enterprise excluido de su propio nearby.
+- Ponderación Enterprise Premium; descuentos solo consumer Premium.
+- Middleware errores ProblemDetails; SQLite WAL.
+- Makefile `reset-db`, `fix-docker-data-perms`.
+- Documentación inicial `Documentation/`.
 
 ### Validación
+
 - `dotnet test`: 28/28 OK
 
 ---
 
 ## 2026-05-16 — GraphQL y simplificación de estructura
 
-**Commit:** `0d8991d` — `feat(api): integrate GraphQL query layer and simplify codebase directory structure`  
+**Commit:** `0d8991d`  
 **Alcance:** backend
 
 ### Cambios
-- Hot Chocolate v13: endpoint `/graphql`, playground en Development.
-- Resolvers: `GetNearbyCafeterias`, `GetConsumerProfile`, `GetMyCafeteria`.
-- Layout plano: sin `src/` ni `tests/`; proyectos `Api/`, `Application/`, `Domain/`, `Infrastructure/`.
-- Contratos aplanados en `Application/Contracts/`.
-- Tests unitarios `FmcQueryTests`.
 
-### Validación
-- Smoke 38 assertions + 18 unit tests OK
+- Hot Chocolate `/graphql`; resolvers nearby, perfil, cafetería.
+- Layout plano Api / Application / Domain / Infrastructure.
 
 ---
 
 ## 2026-05-12 — Serilog y smoke test completo
 
-**Commit:** `e37c977` — `feat: agregar Serilog como logger oficial y smoke test completo de 38 assertions`  
+**Commit:** `e37c977`  
 **Alcance:** backend, ops
 
 ### Cambios
-- Serilog.AspNetCore como logger oficial (bootstrap, request logging, config en `appsettings.json`).
-- Smoke test `make smoke-full`: 38 assertions (auth, perfil, tier, cafetería, nearby, errores).
-- Tokens en `/tmp/tokenfmc/` para reutilización manual.
-- Dockerfile actualizado para arquitectura en capas.
 
-### Validación
-- Smoke 38/38 OK
+- Serilog oficial; `make smoke-full` 38 assertions.
 
 ---
 
-## 2026-05-02 — Clean Architecture en 4 capas
+## Referencia rápida — cuentas seed
 
-**Commit:** `f74ff99` — `refactor: separar proyecto monolítico en Clean Architecture (Domain, Application, Infrastructure, Api)`  
-**Alcance:** backend
+Contraseña: **`SeedPass-123`**
 
-### Cambios
-- Proyectos: `Domain`, `Application`, `Infrastructure`, `Api` con dependencias estrictas.
-- Entidades y enums en Domain; servicios e interfaces en Application; EF/JWT/bcrypt en Infrastructure.
-- `Program.cs` simplificado; DI vía `AddApplicationServices()` / `AddInfrastructure()`.
-- `EnterpriseAuthService` usa repositorios + `IUnitOfWork` (sin DbContext directo).
-- `LocationValidation.IsValidLocation()` + test.
+| Rol | Email |
+|-----|--------|
+| Consumidor Free | `consumidor@seed.fmc` |
+| Consumidor Premium | `consumidor-premium@seed.fmc` |
+| Enterprise Premium (Palermo) | `enterprise-premium@seed.fmc` |
+| Enterprise Standard (San Telmo) | `enterprise-standard@seed.fmc` |
 
-### Validación
-- `dotnet test`: 15/15 OK
-
----
-
-## 2026-04-28 — Demo usable con Swagger y Docker
-
-**Commit:** `87183d0` — `Primer commit de demo usable con swagger y db en docker local`  
-**Alcance:** backend, ops
-
-### Cambios
-- API ejecutable con Swagger UI.
-- Base SQLite en Docker local.
-
----
-
-## 2026-04-28 — Inicialización del proyecto FMC API
-
-**Commit:** `6de36d5` — `Initialize FMC API project with core structure…`  
-**Alcance:** backend
-
-### Cambios
-- Solution, proyectos, `.gitignore`, Makefile.
-- DbContext y migraciones iniciales (`ConsumerUser`, `EnterpriseUser`, `Cafeteria`).
-- Endpoints base: auth consumer/enterprise y descubrimiento `/nearby`.
-
----
-
-## Plantilla (próximas entradas)
-
-```markdown
-## YYYY-MM-DD — <título breve>
-
-**Commit:** `<hash>` — `<asunto>` *(omitir si sin commit)*  
-**Pedido:** <requerimiento del mantenedor>  
-**Alcance:** backend | frontend | docs | ops
-
-### Cambios
-- …
-
-### API / contrato *(si aplica)*
-- …
-
-### Validación
-- …
-```
+Ver `Documentation/06-dev-ops.md` para arranque local y troubleshooting.
