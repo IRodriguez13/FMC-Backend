@@ -78,6 +78,12 @@ public static class DataSeeder
         var uploadRoot = media.UploadRoot;
         var seedAssetsRoot = SeedImageFiles.ResolveSeedAssetsRoot(uploadRoot);
 
+        var legacyConsumerPhotos = await db.CafeteriaPhotos
+            .Where(p => p.AuthorRole == AuthRoles.Consumer)
+            .ToListAsync();
+        if (legacyConsumerPhotos.Count > 0)
+            db.CafeteriaPhotos.RemoveRange(legacyConsumerPhotos);
+
         foreach (var seed in SeedPhotos)
         {
             SeedImageFiles.EnsureOnDisk(uploadRoot, seed.StorageKey, seedAssetsRoot);
@@ -85,48 +91,55 @@ public static class DataSeeder
                 seed.AuthorUserId, seed.AuthorRole, now.AddDays(-seed.DaysAgo));
         }
 
+        foreach (var storageKey in SeedReviewPhotos)
+            SeedImageFiles.EnsureOnDisk(uploadRoot, storageKey, seedAssetsRoot);
+
         SeedImageFiles.CleanupLegacySeedFiles(uploadRoot);
 
         foreach (var seed in SeedReviews)
         {
             await UpsertReviewAsync(db, seed.ReviewId, seed.CafeteriaId, seed.AuthorUserId, seed.AuthorRole,
-                seed.Rating, seed.Text, now.AddDays(-seed.DaysAgo));
+                seed.Rating, seed.Text, seed.PhotoStorageKey, now.AddDays(-seed.DaysAgo));
         }
 
         await db.SaveChangesAsync();
     }
 
-    private static readonly (Guid PhotoId, Guid CafeteriaId, string StorageKey, Guid AuthorUserId, string AuthorRole, int DaysAgo)[] SeedPhotos =
+    private static readonly string[] SeedReviewPhotos =
     [
-        (Guid.Parse("c1111111-1111-4111-8111-111111111101"), CafePremiumId, "seed-palermo-interior.jpg", ConsumerPremiumId, AuthRoles.Consumer, 12),
-        (Guid.Parse("c1111111-1111-4111-8111-111111111102"), CafePremiumId, "seed-palermo-barra.jpg", EnterprisePremiumId, AuthRoles.Enterprise, 8),
-        (Guid.Parse("c2222222-2222-4222-8222-222222221101"), CafeStandardId, "seed-san-telmo-patio.jpg", ConsumerFreeId, AuthRoles.Consumer, 20),
-        (Guid.Parse("c3333333-3333-4333-8333-333333331101"), CafeRecoletaId, "seed-recoleta-frente.jpg", ConsumerPremiumId, AuthRoles.Consumer, 5),
-        (Guid.Parse("c3333333-3333-4333-8333-333333331102"), CafeRecoletaId, "seed-recoleta-detalle.jpg", EnterpriseRecoletaId, AuthRoles.Enterprise, 3),
-        (Guid.Parse("c4444444-4444-4444-8444-444444441101"), CafeCaballitoId, "seed-caballito-local.jpg", EnterpriseStandardId, AuthRoles.Enterprise, 15),
-        (Guid.Parse("c4444444-4444-4444-8444-444444441102"), CafeCaballitoId, "seed-caballito-visita.jpg", ConsumerFreeId, AuthRoles.Consumer, 2),
+        "seed-palermo-interior.jpg",
+        "seed-caballito-visita.jpg",
+        "seed-recoleta-frente.jpg",
     ];
 
-    private static readonly (Guid ReviewId, Guid CafeteriaId, Guid AuthorUserId, string AuthorRole, int Rating, string Text, int DaysAgo)[] SeedReviews =
+    private static readonly (Guid PhotoId, Guid CafeteriaId, string StorageKey, Guid AuthorUserId, string AuthorRole, int DaysAgo)[] SeedPhotos =
+    [
+        (Guid.Parse("c1111111-1111-4111-8111-111111111102"), CafePremiumId, "seed-palermo-barra.jpg", EnterprisePremiumId, AuthRoles.Enterprise, 8),
+        (Guid.Parse("c2222222-2222-4222-8222-222222221101"), CafeStandardId, "seed-san-telmo-patio.jpg", EnterpriseStandardId, AuthRoles.Enterprise, 20),
+        (Guid.Parse("c3333333-3333-4333-8333-333333331102"), CafeRecoletaId, "seed-recoleta-detalle.jpg", EnterpriseRecoletaId, AuthRoles.Enterprise, 3),
+        (Guid.Parse("c4444444-4444-4444-8444-444444441101"), CafeCaballitoId, "seed-caballito-local.jpg", EnterpriseStandardId, AuthRoles.Enterprise, 15),
+    ];
+
+    private static readonly (Guid ReviewId, Guid CafeteriaId, Guid AuthorUserId, string AuthorRole, int Rating, string Text, string? PhotoStorageKey, int DaysAgo)[] SeedReviews =
     [
         (Guid.Parse("d1111111-1111-4111-8111-111111111101"), CafePremiumId, ConsumerFreeId, AuthRoles.Consumer, 5,
-            "Ambiente increíble en Palermo. Ideal para trabajar con notebook un rato.", 14),
+            "Ambiente increíble en Palermo. Ideal para trabajar con notebook un rato.", "seed-palermo-interior.jpg", 14),
         (Guid.Parse("d1111111-1111-4111-8111-111111111102"), CafePremiumId, ConsumerPremiumId, AuthRoles.Consumer, 4,
-            "Muy buen flat white. Volvería un sábado a la tarde.", 7),
+            "Muy buen flat white. Volvería un sábado a la tarde.", "seed-caballito-visita.jpg", 7),
         (Guid.Parse("d1111111-1111-4111-8111-111111111103"), CafePremiumId, EnterpriseStandardId, AuthRoles.Enterprise, 4,
-            "Buen punto para reuniones informales; wifi estable.", 4),
+            "Buen punto para reuniones informales; wifi estable.", "seed-recoleta-frente.jpg", 4),
         (Guid.Parse("d2222222-2222-4222-8222-222222221101"), CafeStandardId, ConsumerPremiumId, AuthRoles.Consumer, 3,
-            "San Telmo clásico. Un poco ruidoso al mediodía pero auténtico.", 18),
+            "San Telmo clásico. Un poco ruidoso al mediodía pero auténtico.", "seed-recoleta-frente.jpg", 18),
         (Guid.Parse("d2222222-2222-4222-8222-222222221102"), CafeStandardId, EnterpriseRecoletaId, AuthRoles.Enterprise, 5,
-            "Medialunas excelentes. Recomendado si estás de paseo por la feria.", 9),
+            "Medialunas excelentes. Recomendado si estás de paseo por la feria.", null, 9),
         (Guid.Parse("d3333333-3333-4333-8333-333333331101"), CafeRecoletaId, ConsumerFreeId, AuthRoles.Consumer, 4,
-            "Muy lindo local en Recoleta, atención amable.", 6),
+            "Muy lindo local en Recoleta, atención amable.", "seed-palermo-interior.jpg", 6),
         (Guid.Parse("d3333333-3333-4333-8333-333333331102"), CafeRecoletaId, EnterpriseCaballitoId, AuthRoles.Enterprise, 4,
-            "Buen espresso y mesas cómodas cerca del Bajo.", 11),
+            "Buen espresso y mesas cómodas cerca del Bajo.", null, 11),
         (Guid.Parse("d4444444-4444-4444-8444-444444441101"), CafeCaballitoId, ConsumerPremiumId, AuthRoles.Consumer, 5,
-            "Caballito necesitaba un café así. Precios razonables.", 3),
+            "Caballito necesitaba un café así. Precios razonables.", "seed-caballito-visita.jpg", 3),
         (Guid.Parse("d4444444-4444-4444-8444-444444441102"), CafeCaballitoId, EnterprisePremiumId, AuthRoles.Enterprise, 3,
-            "Correcto para un café rápido antes del laburo.", 1),
+            "Correcto para un café rápido antes del laburo.", null, 1),
     ];
 
     private static async Task UpsertPhotoAsync(
@@ -169,6 +182,7 @@ public static class DataSeeder
         string authorRole,
         int rating,
         string text,
+        string? photoStorageKey,
         DateTimeOffset createdAt)
     {
         var review = await db.CafeteriaReviews.FindAsync(id);
@@ -182,6 +196,7 @@ public static class DataSeeder
                 AuthorRole = authorRole,
                 Rating = rating,
                 Text = text,
+                PhotoStorageKey = photoStorageKey,
                 CreatedAt = createdAt,
                 UpdatedAt = createdAt,
             });
@@ -193,6 +208,7 @@ public static class DataSeeder
         review.AuthorRole = authorRole;
         review.Rating = rating;
         review.Text = text;
+        review.PhotoStorageKey = photoStorageKey;
         review.UpdatedAt = createdAt;
     }
 

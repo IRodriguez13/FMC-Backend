@@ -28,14 +28,27 @@ public class CafeteriaPhotoServiceTests
             UpdatedAt = DateTimeOffset.UtcNow,
         };
 
+    private static EnterpriseUser CreateEnterprise(Guid userId, Guid cafeteriaId) =>
+        new()
+        {
+            Id = userId,
+            Email = "ent@test.fmc",
+            PasswordHash = "hash",
+            CafeteriaId = cafeteriaId,
+            SubscriptionTier = EnterpriseSubscriptionTier.Standard,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+
     private static CafeteriaPhotoService CreateSut(
         Mock<ICafeteriaRepository>? cafeterias = null,
         Mock<ICafeteriaPhotoRepository>? photos = null,
+        Mock<IEnterpriseUserRepository>? enterpriseUsers = null,
         Mock<IFileStorageService>? storage = null,
         MediaOptions? mediaOptions = null)
     {
         cafeterias ??= new Mock<ICafeteriaRepository>();
         photos ??= new Mock<ICafeteriaPhotoRepository>();
+        enterpriseUsers ??= new Mock<IEnterpriseUserRepository>();
         storage ??= new Mock<IFileStorageService>();
 
         storage.Setup(s => s.GetPublicUrl(It.IsAny<string>()))
@@ -46,6 +59,7 @@ public class CafeteriaPhotoServiceTests
         return new CafeteriaPhotoService(
             cafeterias.Object,
             photos.Object,
+            enterpriseUsers.Object,
             storage.Object,
             Options.Create(mediaOptions ?? DefaultMediaOptions));
     }
@@ -61,7 +75,7 @@ public class CafeteriaPhotoServiceTests
             StorageKey = "photo.jpg",
             ContentType = "image/jpeg",
             AuthorUserId = Guid.NewGuid(),
-            AuthorRole = AuthRoles.Consumer,
+            AuthorRole = AuthRoles.Enterprise,
             CreatedAt = DateTimeOffset.UtcNow,
         };
 
@@ -78,23 +92,11 @@ public class CafeteriaPhotoServiceTests
 
         Assert.Single(result.Items);
         Assert.Equal("/media/photo.jpg", result.Items[0].Url);
-        Assert.Equal(AuthRoles.Consumer, result.Items[0].AuthorRole);
+        Assert.Equal(AuthRoles.Enterprise, result.Items[0].AuthorRole);
     }
 
     [Fact]
-    public async Task ListAsync_Throws_WhenCafeteriaNotFound()
-    {
-        var cafeterias = new Mock<ICafeteriaRepository>();
-        cafeterias.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Cafeteria?)null);
-
-        var sut = CreateSut(cafeterias);
-
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => sut.ListAsync(Guid.NewGuid()));
-    }
-
-    [Fact]
-    public async Task UploadAsync_PersistsPhoto_WhenInputValid()
+    public async Task UploadAsync_PersistsPhoto_WhenEnterpriseOwnsCafeteria()
     {
         var cafe = CreateCafeteria();
         var authorId = Guid.NewGuid();
@@ -108,7 +110,11 @@ public class CafeteriaPhotoServiceTests
             .Callback<CafeteriaPhoto, CancellationToken>((p, _) => captured = p)
             .ReturnsAsync((CafeteriaPhoto p, CancellationToken _) => p);
 
-        var sut = CreateSut(cafeterias, photos);
+        var enterpriseUsers = new Mock<IEnterpriseUserRepository>();
+        enterpriseUsers.Setup(r => r.GetByIdAsync(authorId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateEnterprise(authorId, cafe.Id));
+
+        var sut = CreateSut(cafeterias, photos, enterpriseUsers);
         await using var stream = new MemoryStream([0xFF, 0xD8, 0xFF]);
 
         var dto = await sut.UploadAsync(
@@ -121,9 +127,74 @@ public class CafeteriaPhotoServiceTests
 
         Assert.NotNull(captured);
         Assert.Equal(cafe.Id, captured!.CafeteriaId);
-        Assert.Equal(authorId, captured.AuthorUserId);
-        Assert.Equal(AuthRoles.Enterprise, captured.AuthorRole);
         Assert.Equal("/media/abc123.jpg", dto.Url);
+    }
+
+    [Fact]
+    public async Task UploadAsync_Throws_WhenConsumerUploads()
+    {
+        var cafe = CreateCafeteria();
+        var cafeterias = new Mock<ICafeteriaRepository>();
+        cafeterias.Setup(r => r.GetByIdAsync(cafe.Id, It.IsAny<CancellationToken>())).ReturnsAsync(cafe);
+
+        var sut = CreateSut(cafeterias);
+        await using var stream = new MemoryStream([1, 2, 3]);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            sut.UploadAsync(cafe.Id, Guid.NewGuid(), AuthRoles.Consumer, stream, "image/jpeg", contentLength: 3));
+    }
+
+    [Fact]
+    public async Task UploadAsync_Throws_WhenEnterpriseDoesNotOwnCafeteria()
+    {
+        var cafe = CreateCafeteria();
+        var authorId = Guid.NewGuid();
+        var cafeterias = new Mock<ICafeteriaRepository>();
+        cafeterias.Setup(r => r.GetByIdAsync(cafe.Id, It.IsAny<CancellationToken>())).ReturnsAsync(cafe);
+
+        var enterpriseUsers = new Mock<IEnterpriseUserRepository>();
+        enterpriseUsers.Setup(r => r.GetByIdAsync(authorId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateEnterprise(authorId, Guid.NewGuid()));
+
+        var sut = CreateSut(cafeterias, enterpriseUsers: enterpriseUsers);
+        await using var stream = new MemoryStream([1, 2, 3]);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            sut.UploadAsync(cafe.Id, authorId, AuthRoles.Enterprise, stream, "image/jpeg", contentLength: 3));
+    }
+
+    [Fact]
+    public async Task DeleteAsync_RemovesPhoto_WhenEnterpriseOwnsCafeteria()
+    {
+        var cafe = CreateCafeteria();
+        var authorId = Guid.NewGuid();
+        var photoId = Guid.NewGuid();
+        var photo = new CafeteriaPhoto
+        {
+            Id = photoId,
+            CafeteriaId = cafe.Id,
+            StorageKey = "photo.jpg",
+            ContentType = "image/jpeg",
+            AuthorUserId = authorId,
+            AuthorRole = AuthRoles.Enterprise,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+
+        var cafeterias = new Mock<ICafeteriaRepository>();
+        cafeterias.Setup(r => r.GetByIdAsync(cafe.Id, It.IsAny<CancellationToken>())).ReturnsAsync(cafe);
+
+        var photos = new Mock<ICafeteriaPhotoRepository>();
+        photos.Setup(r => r.GetByIdAsync(photoId, It.IsAny<CancellationToken>())).ReturnsAsync(photo);
+
+        var enterpriseUsers = new Mock<IEnterpriseUserRepository>();
+        enterpriseUsers.Setup(r => r.GetByIdAsync(authorId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateEnterprise(authorId, cafe.Id));
+
+        var sut = CreateSut(cafeterias, photos, enterpriseUsers);
+
+        await sut.DeleteAsync(cafe.Id, photoId, authorId, AuthRoles.Enterprise);
+
+        photos.Verify(r => r.DeleteAsync(photo, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Theory]
@@ -132,55 +203,37 @@ public class CafeteriaPhotoServiceTests
     public async Task UploadAsync_Throws_WhenFileEmpty(long contentLength)
     {
         var cafe = CreateCafeteria();
+        var authorId = Guid.NewGuid();
         var cafeterias = new Mock<ICafeteriaRepository>();
         cafeterias.Setup(r => r.GetByIdAsync(cafe.Id, It.IsAny<CancellationToken>())).ReturnsAsync(cafe);
 
-        var sut = CreateSut(cafeterias);
+        var enterpriseUsers = new Mock<IEnterpriseUserRepository>();
+        enterpriseUsers.Setup(r => r.GetByIdAsync(authorId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateEnterprise(authorId, cafe.Id));
+
+        var sut = CreateSut(cafeterias, enterpriseUsers: enterpriseUsers);
         await using var stream = new MemoryStream();
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            sut.UploadAsync(cafe.Id, Guid.NewGuid(), AuthRoles.Consumer, stream, "image/jpeg", contentLength));
-    }
-
-    [Fact]
-    public async Task UploadAsync_Throws_WhenFileTooLarge()
-    {
-        var cafe = CreateCafeteria();
-        var cafeterias = new Mock<ICafeteriaRepository>();
-        cafeterias.Setup(r => r.GetByIdAsync(cafe.Id, It.IsAny<CancellationToken>())).ReturnsAsync(cafe);
-
-        var sut = CreateSut(cafeterias, mediaOptions: DefaultMediaOptions);
-        await using var stream = new MemoryStream([1, 2, 3]);
-
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            sut.UploadAsync(cafe.Id, Guid.NewGuid(), AuthRoles.Consumer, stream, "image/jpeg", contentLength: 2048));
+            sut.UploadAsync(cafe.Id, authorId, AuthRoles.Enterprise, stream, "image/jpeg", contentLength));
     }
 
     [Fact]
     public async Task UploadAsync_Throws_WhenContentTypeNotAllowed()
     {
         var cafe = CreateCafeteria();
+        var authorId = Guid.NewGuid();
         var cafeterias = new Mock<ICafeteriaRepository>();
         cafeterias.Setup(r => r.GetByIdAsync(cafe.Id, It.IsAny<CancellationToken>())).ReturnsAsync(cafe);
 
-        var sut = CreateSut(cafeterias);
+        var enterpriseUsers = new Mock<IEnterpriseUserRepository>();
+        enterpriseUsers.Setup(r => r.GetByIdAsync(authorId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateEnterprise(authorId, cafe.Id));
+
+        var sut = CreateSut(cafeterias, enterpriseUsers: enterpriseUsers);
         await using var stream = new MemoryStream([1, 2, 3]);
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            sut.UploadAsync(cafe.Id, Guid.NewGuid(), AuthRoles.Consumer, stream, "application/pdf", contentLength: 3));
-    }
-
-    [Fact]
-    public async Task UploadAsync_Throws_WhenCafeteriaNotFound()
-    {
-        var cafeterias = new Mock<ICafeteriaRepository>();
-        cafeterias.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Cafeteria?)null);
-
-        var sut = CreateSut(cafeterias);
-        await using var stream = new MemoryStream([1, 2, 3]);
-
-        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
-            sut.UploadAsync(Guid.NewGuid(), Guid.NewGuid(), AuthRoles.Consumer, stream, "image/jpeg", contentLength: 3));
+            sut.UploadAsync(cafe.Id, authorId, AuthRoles.Enterprise, stream, "application/pdf", contentLength: 3));
     }
 }

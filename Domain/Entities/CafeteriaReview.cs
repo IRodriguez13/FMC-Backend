@@ -10,6 +10,7 @@ public class CafeteriaReview : IAuthorOwnedEntity
     public string AuthorRole { get; set; } = null!;
     public int Rating { get; set; }
     public string? Text { get; set; }
+    public string? PhotoStorageKey { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 

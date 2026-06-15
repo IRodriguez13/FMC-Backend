@@ -14,6 +14,7 @@ public interface IConsumerProfileService
         string contentType,
         long contentLength,
         CancellationToken ct = default);
+    Task<ConsumerProfileDto> DeleteAvatarAsync(Guid userId, CancellationToken ct = default);
     Task<ConsumerProfileDto> SetTierAsync(Guid userId, ConsumerTier newTier, CancellationToken ct = default);
 }
 
@@ -72,6 +73,16 @@ public class ConsumerProfileService(IConsumerUserRepository users, IFileStorageS
 
         var storageKey = await storage.SaveImageAsync(content, contentType, ct);
         user.AvatarStorageKey = storageKey;
+        await users.SaveChangesAsync(ct);
+        return Map(user);
+    }
+
+    public async Task<ConsumerProfileDto> DeleteAvatarAsync(Guid userId, CancellationToken ct = default)
+    {
+        var user = await users.GetTrackedByIdAsync(userId, ct)
+            ?? throw new KeyNotFoundException("Usuario no encontrado.");
+
+        user.AvatarStorageKey = null;
         await users.SaveChangesAsync(ct);
         return Map(user);
     }

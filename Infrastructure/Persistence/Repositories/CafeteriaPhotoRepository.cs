@@ -1,4 +1,5 @@
 using Fmc.Application.Interfaces;
+using Fmc.Domain.Constants;
 using Fmc.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,7 +13,7 @@ public class CafeteriaPhotoRepository(AppDbContext db) : ICafeteriaPhotoReposito
     {
         var list = await db.CafeteriaPhotos
             .AsNoTracking()
-            .Where(p => p.CafeteriaId == cafeteriaId)
+            .Where(p => p.CafeteriaId == cafeteriaId && p.AuthorRole == AuthRoles.Enterprise)
             .ToListAsync(ct);
 
         return list.OrderByDescending(p => p.CreatedAt).ToList();
@@ -28,7 +29,7 @@ public class CafeteriaPhotoRepository(AppDbContext db) : ICafeteriaPhotoReposito
 
         var list = await db.CafeteriaPhotos
             .AsNoTracking()
-            .Where(p => ids.Contains(p.CafeteriaId))
+            .Where(p => ids.Contains(p.CafeteriaId) && p.AuthorRole == AuthRoles.Enterprise)
             .ToListAsync(ct);
 
         return list
@@ -38,10 +39,19 @@ public class CafeteriaPhotoRepository(AppDbContext db) : ICafeteriaPhotoReposito
                 g => g.OrderByDescending(p => p.CreatedAt).First().StorageKey);
     }
 
+    public Task<CafeteriaPhoto?> GetByIdAsync(Guid photoId, CancellationToken ct = default) =>
+        db.CafeteriaPhotos.FirstOrDefaultAsync(p => p.Id == photoId, ct);
+
     public async Task<CafeteriaPhoto> AddAsync(CafeteriaPhoto photo, CancellationToken ct = default)
     {
         db.CafeteriaPhotos.Add(photo);
         await db.SaveChangesAsync(ct);
         return photo;
+    }
+
+    public async Task DeleteAsync(CafeteriaPhoto photo, CancellationToken ct = default)
+    {
+        db.CafeteriaPhotos.Remove(photo);
+        await db.SaveChangesAsync(ct);
     }
 }

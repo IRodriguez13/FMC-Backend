@@ -1,8 +1,10 @@
+using Fmc.Application.Configuration;
 using Fmc.Application.Contracts;
 using Fmc.Application.Interfaces;
 using Fmc.Application.Services;
 using Fmc.Domain.Constants;
 using Fmc.Domain.Entities;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace Fmc.Api.Tests;
@@ -22,11 +24,20 @@ public class CafeteriaReviewServiceTests
 
     private static CafeteriaReviewService CreateSut(
         Mock<ICafeteriaRepository>? cafeterias = null,
-        Mock<ICafeteriaReviewRepository>? reviews = null)
+        Mock<ICafeteriaReviewRepository>? reviews = null,
+        Mock<IFileStorageService>? storage = null)
     {
         cafeterias ??= new Mock<ICafeteriaRepository>();
         reviews ??= new Mock<ICafeteriaReviewRepository>();
-        return new CafeteriaReviewService(cafeterias.Object, reviews.Object);
+        storage ??= new Mock<IFileStorageService>();
+        storage.Setup(s => s.GetPublicUrl(It.IsAny<string>()))
+            .Returns<string>(key => $"/media/{key}");
+
+        return new CafeteriaReviewService(
+            cafeterias.Object,
+            reviews.Object,
+            storage.Object,
+            Options.Create(new MediaOptions { MaxFileSizeBytes = 5_242_880 }));
     }
 
     [Fact]
@@ -325,5 +336,76 @@ public class CafeteriaReviewServiceTests
 
         await Assert.ThrowsAsync<KeyNotFoundException>(() =>
             sut.DeleteAsync(cafe.Id, Guid.NewGuid(), Guid.NewGuid(), AuthRoles.Consumer));
+    }
+
+    [Fact]
+    public async Task UploadPhotoAsync_SetsStorageKey_OnOwnedReview()
+    {
+        var cafe = CreateCafeteria();
+        var authorId = Guid.NewGuid();
+        var reviewId = Guid.NewGuid();
+        var existing = new CafeteriaReview
+        {
+            Id = reviewId,
+            CafeteriaId = cafe.Id,
+            AuthorUserId = authorId,
+            AuthorRole = AuthRoles.Consumer,
+            Rating = 4,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+        };
+
+        var cafeterias = new Mock<ICafeteriaRepository>();
+        cafeterias.Setup(r => r.GetByIdAsync(cafe.Id, It.IsAny<CancellationToken>())).ReturnsAsync(cafe);
+
+        var reviewRepo = new Mock<ICafeteriaReviewRepository>();
+        reviewRepo.Setup(r => r.GetByIdAsync(reviewId, It.IsAny<CancellationToken>())).ReturnsAsync(existing);
+
+        var storage = new Mock<IFileStorageService>();
+        storage.Setup(s => s.SaveImageAsync(It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("review.jpg");
+        storage.Setup(s => s.GetPublicUrl("review.jpg")).Returns("/media/review.jpg");
+
+        var sut = CreateSut(cafeterias, reviewRepo, storage);
+        await using var stream = new MemoryStream([0xFF, 0xD8, 0xFF]);
+
+        var dto = await sut.UploadPhotoAsync(
+            cafe.Id, reviewId, authorId, AuthRoles.Consumer, stream, "image/jpeg", 3);
+
+        reviewRepo.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        Assert.Equal("review.jpg", existing.PhotoStorageKey);
+        Assert.Equal("/media/review.jpg", dto.PhotoUrl);
+    }
+
+    [Fact]
+    public async Task DeletePhotoAsync_ClearsStorageKey_OnOwnedReview()
+    {
+        var cafe = CreateCafeteria();
+        var authorId = Guid.NewGuid();
+        var reviewId = Guid.NewGuid();
+        var existing = new CafeteriaReview
+        {
+            Id = reviewId,
+            CafeteriaId = cafe.Id,
+            AuthorUserId = authorId,
+            AuthorRole = AuthRoles.Consumer,
+            Rating = 4,
+            PhotoStorageKey = "old.jpg",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+        };
+
+        var cafeterias = new Mock<ICafeteriaRepository>();
+        cafeterias.Setup(r => r.GetByIdAsync(cafe.Id, It.IsAny<CancellationToken>())).ReturnsAsync(cafe);
+
+        var reviewRepo = new Mock<ICafeteriaReviewRepository>();
+        reviewRepo.Setup(r => r.GetByIdAsync(reviewId, It.IsAny<CancellationToken>())).ReturnsAsync(existing);
+
+        var sut = CreateSut(cafeterias, reviewRepo);
+
+        await sut.DeletePhotoAsync(cafe.Id, reviewId, authorId, AuthRoles.Consumer);
+
+        Assert.Null(existing.PhotoStorageKey);
+        reviewRepo.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 }

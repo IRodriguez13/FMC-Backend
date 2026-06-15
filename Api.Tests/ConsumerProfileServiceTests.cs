@@ -173,6 +173,35 @@ public class ConsumerProfileServiceTests
     }
 
     [Fact]
+    public async Task DeleteAvatarAsync_ClearsStorageKey()
+    {
+        var user = CreateUser(avatarStorageKey: "avatar-abc.jpg");
+        var users = new Mock<IConsumerUserRepository>();
+        users.Setup(r => r.GetTrackedByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+
+        var sut = CreateSut(users);
+        var result = await sut.DeleteAvatarAsync(user.Id);
+
+        Assert.Null(user.AvatarStorageKey);
+        Assert.Null(result.AvatarUrl);
+        users.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteAvatarAsync_IsIdempotent_WhenAlreadyMissing()
+    {
+        var user = CreateUser(avatarStorageKey: null);
+        var users = new Mock<IConsumerUserRepository>();
+        users.Setup(r => r.GetTrackedByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+
+        var sut = CreateSut(users);
+        var result = await sut.DeleteAvatarAsync(user.Id);
+
+        Assert.Null(result.AvatarUrl);
+        users.Verify(r => r.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task SetTierAsync_UpdatesTier()
     {
         var user = CreateUser(tier: ConsumerTier.Free);

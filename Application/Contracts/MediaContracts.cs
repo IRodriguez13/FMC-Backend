@@ -14,6 +14,7 @@ public record CafeteriaReviewDto(
     Guid CafeteriaId,
     int Rating,
     string? Text,
+    string? PhotoUrl,
     Guid AuthorUserId,
     string AuthorRole,
     DateTimeOffset CreatedAt,

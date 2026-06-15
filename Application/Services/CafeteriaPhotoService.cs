@@ -1,6 +1,7 @@
 using Fmc.Application.Configuration;
 using Fmc.Application.Contracts;
 using Fmc.Application.Interfaces;
+using Fmc.Domain.Constants;
 using Fmc.Domain.Entities;
 using Microsoft.Extensions.Options;
 
@@ -18,15 +19,27 @@ public interface ICafeteriaPhotoService
         string contentType,
         long contentLength,
         CancellationToken ct = default);
+
+    Task DeleteAsync(
+        Guid cafeteriaId,
+        Guid photoId,
+        Guid authorUserId,
+        string authorRole,
+        CancellationToken ct = default);
 }
 
 public class CafeteriaPhotoService(
     ICafeteriaRepository cafeterias,
     ICafeteriaPhotoRepository photos,
+    IEnterpriseUserRepository enterpriseUsers,
     IFileStorageService storage,
     IOptions<MediaOptions> mediaOptions)
     : ICafeteriaPhotoService
 {
+    private const string PhotoNotFound = "Foto no encontrada.";
+    private const string PhotoForbidden = "No podés gestionar las fotos de este local.";
+    private const string EnterpriseOnly = "Solo el negocio puede gestionar las fotos del local.";
+
     private static readonly HashSet<string> AllowedContentTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "image/jpeg",
@@ -53,15 +66,8 @@ public class CafeteriaPhotoService(
         CancellationToken ct = default)
     {
         await EnsureCafeteriaExistsAsync(cafeteriaId, ct);
-
-        if (contentLength <= 0)
-            throw new ArgumentException("Archivo vacío.");
-
-        if (contentLength > _media.MaxFileSizeBytes)
-            throw new ArgumentException($"La imagen supera el tamaño máximo de {_media.MaxFileSizeBytes / (1024 * 1024)} MB.");
-
-        if (!AllowedContentTypes.Contains(contentType))
-            throw new ArgumentException("Formato no permitido. Usá JPEG, PNG o WebP.");
+        await EnsureEnterpriseOwnsCafeteriaAsync(cafeteriaId, authorUserId, authorRole, ct);
+        ValidateImage(contentLength, contentType);
 
         var storageKey = await storage.SaveImageAsync(content, contentType, ct);
         var now = DateTimeOffset.UtcNow;
@@ -79,6 +85,53 @@ public class CafeteriaPhotoService(
 
         var saved = await photos.AddAsync(entity, ct);
         return Map(saved);
+    }
+
+    public async Task DeleteAsync(
+        Guid cafeteriaId,
+        Guid photoId,
+        Guid authorUserId,
+        string authorRole,
+        CancellationToken ct = default)
+    {
+        await EnsureCafeteriaExistsAsync(cafeteriaId, ct);
+        await EnsureEnterpriseOwnsCafeteriaAsync(cafeteriaId, authorUserId, authorRole, ct);
+
+        var photo = await photos.GetByIdAsync(photoId, ct)
+            ?? throw new KeyNotFoundException(PhotoNotFound);
+
+        if (photo.CafeteriaId != cafeteriaId)
+            throw new KeyNotFoundException(PhotoNotFound);
+
+        await photos.DeleteAsync(photo, ct);
+    }
+
+    private async Task EnsureEnterpriseOwnsCafeteriaAsync(
+        Guid cafeteriaId,
+        Guid authorUserId,
+        string authorRole,
+        CancellationToken ct)
+    {
+        if (authorRole != AuthRoles.Enterprise)
+            throw new UnauthorizedAccessException(EnterpriseOnly);
+
+        var enterprise = await enterpriseUsers.GetByIdAsync(authorUserId, ct)
+            ?? throw new UnauthorizedAccessException(PhotoForbidden);
+
+        if (enterprise.CafeteriaId != cafeteriaId)
+            throw new UnauthorizedAccessException(PhotoForbidden);
+    }
+
+    private void ValidateImage(long contentLength, string contentType)
+    {
+        if (contentLength <= 0)
+            throw new ArgumentException("Archivo vacío.");
+
+        if (contentLength > _media.MaxFileSizeBytes)
+            throw new ArgumentException($"La imagen supera el tamaño máximo de {_media.MaxFileSizeBytes / (1024 * 1024)} MB.");
+
+        if (!AllowedContentTypes.Contains(contentType))
+            throw new ArgumentException("Formato no permitido. Usá JPEG, PNG o WebP.");
     }
 
     private async Task EnsureCafeteriaExistsAsync(Guid cafeteriaId, CancellationToken ct)

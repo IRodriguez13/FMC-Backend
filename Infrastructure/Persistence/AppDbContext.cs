@@ -54,6 +54,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.Property(x => x.AuthorRole).HasMaxLength(32);
             e.Property(x => x.Text).HasMaxLength(2000);
+            e.Property(x => x.PhotoStorageKey).HasMaxLength(260);
             e.HasIndex(x => x.CafeteriaId);
             e.HasIndex(x => new { x.CafeteriaId, x.AuthorUserId, x.AuthorRole }).IsUnique();
             e.HasOne(x => x.Cafeteria)

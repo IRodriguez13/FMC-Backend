@@ -1,6 +1,8 @@
+using Fmc.Application.Configuration;
 using Fmc.Application.Contracts;
 using Fmc.Application.Interfaces;
 using Fmc.Domain.Entities;
+using Microsoft.Extensions.Options;
 
 namespace Fmc.Application.Services;
 
@@ -29,16 +31,44 @@ public interface ICafeteriaReviewService
         Guid authorUserId,
         string authorRole,
         CancellationToken ct = default);
+
+    Task<CafeteriaReviewDto> UploadPhotoAsync(
+        Guid cafeteriaId,
+        Guid reviewId,
+        Guid authorUserId,
+        string authorRole,
+        Stream content,
+        string contentType,
+        long contentLength,
+        CancellationToken ct = default);
+
+    Task DeletePhotoAsync(
+        Guid cafeteriaId,
+        Guid reviewId,
+        Guid authorUserId,
+        string authorRole,
+        CancellationToken ct = default);
 }
 
 public class CafeteriaReviewService(
     ICafeteriaRepository cafeterias,
-    ICafeteriaReviewRepository reviews)
+    ICafeteriaReviewRepository reviews,
+    IFileStorageService storage,
+    IOptions<MediaOptions> mediaOptions)
     : AuthorOwnedCrudServiceBase<CafeteriaReview>(cafeterias, reviews), ICafeteriaReviewService
 {
     private const int MaxTextLength = 2000;
     private const string ReviewNotFound = "Reseña no encontrada.";
     private const string ReviewForbidden = "No podés modificar esta reseña.";
+
+    private static readonly HashSet<string> AllowedContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+    };
+
+    private readonly MediaOptions _media = mediaOptions.Value;
 
     public async Task<CafeteriaReviewsResponse> ListAsync(Guid cafeteriaId, CancellationToken ct = default)
     {
@@ -113,6 +143,61 @@ public class CafeteriaReviewService(
         DeleteOwnedAsync(
             cafeteriaId, reviewId, authorUserId, authorRole, ReviewNotFound, ReviewForbidden, ct);
 
+    public async Task<CafeteriaReviewDto> UploadPhotoAsync(
+        Guid cafeteriaId,
+        Guid reviewId,
+        Guid authorUserId,
+        string authorRole,
+        Stream content,
+        string contentType,
+        long contentLength,
+        CancellationToken ct = default)
+    {
+        await EnsureCafeteriaExistsAsync(cafeteriaId, ct);
+        ValidateImage(contentLength, contentType);
+
+        var entity = await RequireOwnedEntityAsync(
+            cafeteriaId, reviewId, authorUserId, authorRole, ReviewNotFound, ReviewForbidden, ct);
+
+        var storageKey = await storage.SaveImageAsync(content, contentType, ct);
+        entity.PhotoStorageKey = storageKey;
+        entity.UpdatedAt = DateTimeOffset.UtcNow;
+        await reviews.SaveChangesAsync(ct);
+        return Map(entity);
+    }
+
+    public async Task DeletePhotoAsync(
+        Guid cafeteriaId,
+        Guid reviewId,
+        Guid authorUserId,
+        string authorRole,
+        CancellationToken ct = default)
+    {
+        await EnsureCafeteriaExistsAsync(cafeteriaId, ct);
+
+        var entity = await RequireOwnedEntityAsync(
+            cafeteriaId, reviewId, authorUserId, authorRole, ReviewNotFound, ReviewForbidden, ct);
+
+        if (string.IsNullOrWhiteSpace(entity.PhotoStorageKey))
+            throw new KeyNotFoundException("La reseña no tiene foto.");
+
+        entity.PhotoStorageKey = null;
+        entity.UpdatedAt = DateTimeOffset.UtcNow;
+        await reviews.SaveChangesAsync(ct);
+    }
+
+    private void ValidateImage(long contentLength, string contentType)
+    {
+        if (contentLength <= 0)
+            throw new ArgumentException("Archivo vacío.");
+
+        if (contentLength > _media.MaxFileSizeBytes)
+            throw new ArgumentException($"La imagen supera el tamaño máximo de {_media.MaxFileSizeBytes / (1024 * 1024)} MB.");
+
+        if (!AllowedContentTypes.Contains(contentType))
+            throw new ArgumentException("Formato no permitido. Usá JPEG, PNG o WebP.");
+    }
+
     private static (int Rating, string? Text) ValidatePayload(int rating, string? rawText)
     {
         if (rating is < 1 or > 5)
@@ -132,6 +217,12 @@ public class CafeteriaReviewService(
         entity.UpdatedAt = updatedAt;
     }
 
-    private static CafeteriaReviewDto Map(CafeteriaReview r) =>
-        new(r.Id, r.CafeteriaId, r.Rating, r.Text, r.AuthorUserId, r.AuthorRole, r.CreatedAt, r.UpdatedAt);
+    private CafeteriaReviewDto Map(CafeteriaReview r)
+    {
+        string? photoUrl = string.IsNullOrWhiteSpace(r.PhotoStorageKey)
+            ? null
+            : storage.GetPublicUrl(r.PhotoStorageKey);
+
+        return new(r.Id, r.CafeteriaId, r.Rating, r.Text, photoUrl, r.AuthorUserId, r.AuthorRole, r.CreatedAt, r.UpdatedAt);
+    }
 }

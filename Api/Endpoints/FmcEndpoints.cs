@@ -109,6 +109,20 @@ public static class FmcEndpoints
             .RequireRateLimiting("upload")
             .DisableAntiforgery();
 
+        discovery.MapDelete("/{cafeteriaId:guid}/photos/{photoId:guid}", async (
+                Guid cafeteriaId,
+                Guid photoId,
+                HttpContext http,
+                ICafeteriaPhotoService photos,
+                CancellationToken ct) =>
+            {
+                var authorId = http.User.RequireUserId();
+                var authorRole = http.User.RequireAuthorRole();
+                await photos.DeleteAsync(cafeteriaId, photoId, authorId, authorRole, ct);
+                return Results.NoContent();
+            })
+            .RequireAuthorization();
+
         discovery.MapGet("/{cafeteriaId:guid}/reviews", async (
                 Guid cafeteriaId,
                 ICafeteriaReviewService reviews,
@@ -162,6 +176,49 @@ public static class FmcEndpoints
             })
             .RequireAuthorization();
 
+        discovery.MapPost("/{cafeteriaId:guid}/reviews/{reviewId:guid}/photo", async (
+                Guid cafeteriaId,
+                Guid reviewId,
+                IFormFile file,
+                HttpContext http,
+                ICafeteriaReviewService reviews,
+                CancellationToken ct) =>
+            {
+                if (file is null || file.Length == 0)
+                    throw new ArgumentException("Archivo vacío.");
+
+                var authorId = http.User.RequireUserId();
+                var authorRole = http.User.RequireAuthorRole();
+                await using var stream = file.OpenReadStream();
+                var dto = await reviews.UploadPhotoAsync(
+                    cafeteriaId,
+                    reviewId,
+                    authorId,
+                    authorRole,
+                    stream,
+                    file.ContentType,
+                    file.Length,
+                    ct);
+                return Results.Ok(dto);
+            })
+            .RequireAuthorization()
+            .RequireRateLimiting("upload")
+            .DisableAntiforgery();
+
+        discovery.MapDelete("/{cafeteriaId:guid}/reviews/{reviewId:guid}/photo", async (
+                Guid cafeteriaId,
+                Guid reviewId,
+                HttpContext http,
+                ICafeteriaReviewService reviews,
+                CancellationToken ct) =>
+            {
+                var authorId = http.User.RequireUserId();
+                var authorRole = http.User.RequireAuthorRole();
+                await reviews.DeletePhotoAsync(cafeteriaId, reviewId, authorId, authorRole, ct);
+                return Results.NoContent();
+            })
+            .RequireAuthorization();
+
         var consumer = app.MapGroup("/api/consumer").RequireAuthorization(policy => policy.RequireRole(AuthRoles.Consumer)).WithTags("Cliente");
 
         consumer.MapGet("/me", async (HttpContext http, IConsumerProfileService profiles, CancellationToken ct) =>
@@ -198,6 +255,13 @@ public static class FmcEndpoints
             })
             .RequireRateLimiting("upload")
             .DisableAntiforgery();
+
+        consumer.MapDelete("/me/avatar", async (HttpContext http, IConsumerProfileService profiles, CancellationToken ct) =>
+        {
+            var id = http.User.RequireUserId();
+            var dto = await profiles.DeleteAvatarAsync(id, ct);
+            return Results.Ok(dto);
+        });
 
         consumer.MapPatch("/tier", async (
                 ConsumerTierUpdateRequest body,

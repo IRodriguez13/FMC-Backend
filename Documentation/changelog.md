@@ -8,6 +8,29 @@ Entradas **más recientes arriba**.
 
 ---
 
+## 2026-06-15 — Fotos en reseñas, galería enterprise y avatar
+
+**Pedido:** Reseñas con foto; galería del local solo enterprise; borrar avatar; seed de fotos en reseñas.  
+**Alcance:** backend
+
+### Cambios
+
+- `CafeteriaReview.PhotoStorageKey` + migración `ReviewPhotos`; `POST/DELETE …/reviews/{id}/photo`.
+- Fotos de cafetería: upload/delete solo enterprise dueño; listado/cover solo `AuthorRole=enterprise`.
+- `DELETE /api/consumer/me/avatar`; seed reseñas con fotos stock.
+- Tests: `dotnet test` 63/63 OK.
+
+### API nueva
+
+| Método | Ruta |
+|--------|------|
+| POST | `/api/cafeterias/{id}/reviews/{reviewId}/photo` |
+| DELETE | `/api/cafeterias/{id}/reviews/{reviewId}/photo` |
+| DELETE | `/api/cafeterias/{id}/photos/{photoId}` |
+| DELETE | `/api/consumer/me/avatar` |
+
+---
+
 ## 2026-06-11 — Demo MVP funcional (cierre de oleada)
 
 **Commits:** `eccdf28`, `4615755`, `5d8947f`, `96656ca`, `6cafd6c`  

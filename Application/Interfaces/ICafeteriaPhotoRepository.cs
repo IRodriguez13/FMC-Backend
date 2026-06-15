@@ -11,5 +11,9 @@ public interface ICafeteriaPhotoRepository
         IEnumerable<Guid> cafeteriaIds,
         CancellationToken ct = default);
 
+    Task<CafeteriaPhoto?> GetByIdAsync(Guid photoId, CancellationToken ct = default);
+
     Task<CafeteriaPhoto> AddAsync(CafeteriaPhoto photo, CancellationToken ct = default);
+
+    Task DeleteAsync(CafeteriaPhoto photo, CancellationToken ct = default);
 }
