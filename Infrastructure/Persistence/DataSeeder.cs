@@ -139,20 +139,13 @@ public static class DataSeeder
                 seed.Rating, seed.Text, seed.PhotoStorageKey, now.AddDays(-seed.DaysAgo));
         }
 
-        var catalogIndex = 0;
-        foreach (var cafe in CabaCatalogSeed.Cafes.Skip(4))
+        foreach (var seed in CabaCatalogSeedReviews.Extra)
         {
-            catalogIndex++;
-            var authorId = catalogIndex % 2 == 0 ? ConsumerFreeId : ConsumerPremiumId;
-            var reviewId = Guid.Parse($"d{catalogIndex + 4:D7}-1111-4111-8111-111111111101");
-            var photoKey = catalogIndex % 3 == 0
-                ? CabaCatalogSeed.PhotoAssets[catalogIndex % CabaCatalogSeed.PhotoAssets.Length]
-                : null;
-            if (photoKey is not null)
-                SeedImageFiles.EnsureOnDisk(uploadRoot, photoKey, seedAssetsRoot);
-            await UpsertReviewAsync(db, reviewId, cafe.CafeId, authorId, AuthRoles.Consumer,
-                3 + (catalogIndex % 3), $"Muy buen café en {cafe.Name.Split('—').Last().Trim().TrimEnd(')')}. Recomendado.",
-                photoKey, now.AddDays(-catalogIndex));
+            var cafe = CabaCatalogSeed.Cafes[seed.CafeIndex];
+            if (seed.PhotoStorageKey is not null)
+                SeedImageFiles.EnsureOnDisk(uploadRoot, seed.PhotoStorageKey, seedAssetsRoot);
+            await UpsertReviewAsync(db, seed.ReviewId, cafe.CafeId, seed.AuthorUserId, AuthRoles.Consumer,
+                seed.Rating, seed.Text, seed.PhotoStorageKey, now.AddDays(-seed.DaysAgo));
         }
 
         await db.SaveChangesAsync();
@@ -163,20 +156,20 @@ public static class DataSeeder
         (Guid.Parse("d1111111-1111-4111-8111-111111111101"), CafePremiumId, ConsumerFreeId, AuthRoles.Consumer, 5,
             "Ambiente increíble en Palermo. Ideal para trabajar con notebook un rato.", "seed-palermo-interior.jpg", 14),
         (Guid.Parse("d1111111-1111-4111-8111-111111111102"), CafePremiumId, ConsumerPremiumId, AuthRoles.Consumer, 4,
-            "Muy buen flat white. Volvería un sábado a la tarde.", "seed-caballito-visita.jpg", 7),
+            "Muy buen flat white. Volvería un sábado a la tarde.", "seed-palermo-interior.jpg", 7),
         (Guid.Parse("d1111111-1111-4111-8111-111111111103"), CafePremiumId, EnterpriseStandardId, AuthRoles.Enterprise, 4,
-            "Buen punto para reuniones informales; wifi estable.", "seed-recoleta-frente.jpg", 4),
+            "Visitamos desde San Telmo: excelente barra, ambiente cómodo y buen wifi en Palermo.", "seed-recoleta-frente.jpg", 4),
         (Guid.Parse("d2222222-2222-4222-8222-222222221101"), CafeStandardId, ConsumerPremiumId, AuthRoles.Consumer, 3,
-            "San Telmo clásico. Un poco ruidoso al mediodía pero auténtico.", "seed-recoleta-frente.jpg", 18),
-        (Guid.Parse("d2222222-2222-4222-8222-222222221102"), CafeStandardId, EnterpriseRecoletaId, AuthRoles.Enterprise, 5,
+            "San Telmo clásico. Un poco ruidoso al mediodía pero auténtico.", "seed-san-telmo-patio.jpg", 18),
+        (Guid.Parse("d2222222-2222-4222-8222-222222221102"), CafeStandardId, ConsumerFreeId, AuthRoles.Consumer, 5,
             "Medialunas excelentes. Recomendado si estás de paseo por la feria.", null, 9),
         (Guid.Parse("d3333333-3333-4333-8333-333333331101"), CafeRecoletaId, ConsumerFreeId, AuthRoles.Consumer, 4,
-            "Muy lindo local en Recoleta, atención amable.", "seed-palermo-interior.jpg", 6),
-        (Guid.Parse("d3333333-3333-4333-8333-333333331102"), CafeRecoletaId, EnterpriseCaballitoId, AuthRoles.Enterprise, 4,
+            "Muy lindo local en Recoleta, atención amable.", "seed-recoleta-detalle.jpg", 6),
+        (Guid.Parse("d3333333-3333-4333-8333-333333331102"), CafeRecoletaId, ConsumerPremiumId, AuthRoles.Consumer, 4,
             "Buen espresso y mesas cómodas cerca del Bajo.", null, 11),
         (Guid.Parse("d4444444-4444-4444-8444-444444441101"), CafeCaballitoId, ConsumerPremiumId, AuthRoles.Consumer, 5,
             "Caballito necesitaba un café así. Precios razonables.", "seed-caballito-visita.jpg", 3),
-        (Guid.Parse("d4444444-4444-4444-8444-444444441102"), CafeCaballitoId, EnterprisePremiumId, AuthRoles.Enterprise, 3,
+        (Guid.Parse("d4444444-4444-4444-8444-444444441102"), CafeCaballitoId, ConsumerFreeId, AuthRoles.Consumer, 3,
             "Correcto para un café rápido antes del laburo.", null, 1),
     ];
 
