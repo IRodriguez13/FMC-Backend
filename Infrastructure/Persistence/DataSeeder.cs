@@ -7,8 +7,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Fmc.Infrastructure.Persistence;
 
 /// <summary>
-/// Datos demo versionados en Git. <see cref="EnsureCabaDemoAsync"/> es idempotente:
-/// corrige seeds viejos (Madrid) y añade locales/enterprise faltantes en CABA.
+/// Datos demo versionados en Git. <see cref="EnsureCabaCatalogAsync"/> es idempotente:
+/// 20 cafeterías en CABA con fotos desde <c>Api/SeedAssets</c>.
 /// </summary>
 public static class DataSeeder
 {
@@ -26,45 +26,25 @@ public static class DataSeeder
     public static readonly Guid ConsumerPremiumId = Guid.Parse("b3333333-3333-4333-8333-333333333302");
 
     public static Task SeedIfEmptyAsync(AppDbContext db, MediaOptions? media = null) =>
-        EnsureCabaDemoAsync(db, media);
+        EnsureCabaCatalogAsync(db, media);
 
-    public static async Task EnsureCabaDemoAsync(AppDbContext db, MediaOptions? media = null)
+    public static Task EnsureCabaDemoAsync(AppDbContext db, MediaOptions? media = null) =>
+        EnsureCabaCatalogAsync(db, media);
+
+    /// <returns>Cantidad de cafeterías del catálogo seed.</returns>
+    public static async Task<int> EnsureCabaCatalogAsync(AppDbContext db, MediaOptions? media = null)
     {
         var hash = BCrypt.Net.BCrypt.HashPassword(DemoPassword);
         var now = DateTimeOffset.UtcNow;
+        var options = media ?? new MediaOptions();
 
-        await UpsertCafeteriaAsync(db, CafePremiumId,
-            "FMC Seed — Palermo (Premium)",
-            "Demo Enterprise Premium en Palermo, CABA.",
-            "Thames 1500, Palermo, CABA",
-            -34.5875, -58.4250, 15, now);
-
-        await UpsertCafeteriaAsync(db, CafeStandardId,
-            "FMC Seed — San Telmo (Standard)",
-            "Demo Enterprise Standard en San Telmo, CABA.",
-            "Defensa 800, San Telmo, CABA",
-            -34.6210, -58.3730, 8, now);
-
-        await UpsertCafeteriaAsync(db, CafeRecoletaId,
-            "FMC Seed — Recoleta (Premium)",
-            "Demo segundo local Premium en Recoleta.",
-            "Av. Callao 1500, Recoleta, CABA",
-            -34.5950, -58.3920, 12, now);
-
-        await UpsertCafeteriaAsync(db, CafeCaballitoId,
-            "FMC Seed — Caballito (Standard)",
-            "Demo segundo local Standard en Caballito.",
-            "Río de Janeiro 600, Caballito, CABA",
-            -34.6195, -58.4320, 10, now);
-
-        await UpsertEnterpriseAsync(db, EnterprisePremiumId, "enterprise-premium@seed.fmc",
-            CafePremiumId, EnterpriseSubscriptionTier.Premium, hash, now);
-        await UpsertEnterpriseAsync(db, EnterpriseStandardId, "enterprise-standard@seed.fmc",
-            CafeStandardId, EnterpriseSubscriptionTier.Standard, hash, now);
-        await UpsertEnterpriseAsync(db, EnterpriseRecoletaId, "enterprise-recoleta@seed.fmc",
-            CafeRecoletaId, EnterpriseSubscriptionTier.Premium, hash, now);
-        await UpsertEnterpriseAsync(db, EnterpriseCaballitoId, "enterprise-caballito@seed.fmc",
-            CafeCaballitoId, EnterpriseSubscriptionTier.Standard, hash, now);
+        foreach (var cafe in CabaCatalogSeed.Cafes)
+        {
+            await UpsertCafeteriaAsync(db, cafe.CafeId, cafe.Name, cafe.Description, cafe.Address,
+                cafe.Latitude, cafe.Longitude, cafe.DiscountPercent, now);
+            await UpsertEnterpriseAsync(db, cafe.EnterpriseId, cafe.EnterpriseEmail, cafe.CafeId,
+                cafe.Tier, hash, now);
+        }
 
         await UpsertConsumerAsync(db, ConsumerFreeId, "consumidor@seed.fmc", ConsumerTier.Free, hash, now);
         await UpsertConsumerAsync(db, ConsumerPremiumId, "consumidor-premium@seed.fmc", ConsumerTier.Premium, hash, now);
@@ -72,34 +52,48 @@ public static class DataSeeder
         await db.SaveChangesAsync();
 
         await EnsureSeedCouponsAsync(db, now);
-        await EnsureMediaDemoAsync(db, media ?? new MediaOptions(), now);
-        await EnsureEnterpriseAvatarsAsync(db, media ?? new MediaOptions());
+        await EnsureCatalogMediaAsync(db, options, now);
+        await EnsureCatalogReviewsAsync(db, options, now);
+
+        return CabaCatalogSeed.Count;
     }
 
     private static async Task EnsureSeedCouponsAsync(AppDbContext db, DateTimeOffset now)
     {
         var (weekStart, weekEnd) = CouponWeek.CurrentBounds(now);
-        var existing = await db.EnterpriseCoupons
-            .AnyAsync(c => c.CafeteriaId == CafePremiumId && c.Code == "PALERMO-2X1");
-        if (existing) return;
 
-        db.EnterpriseCoupons.Add(new EnterpriseCoupon
+        var coupons = new (Guid Id, Guid CafeteriaId, string Code, string Title)[]
         {
-            Id = Guid.Parse("e1111111-1111-4111-8111-111111111101"),
-            CafeteriaId = CafePremiumId,
-            Kind = CouponKind.TwoForOne,
-            Title = "2x1 en cappuccino",
-            Description = "Válido de lunes a domingo en barra.",
-            Code = "PALERMO-2X1",
-            ValidFrom = weekStart,
-            ValidUntil = weekEnd,
-            IsActive = true,
-            CreatedAt = now,
-        });
+            (Guid.Parse("e1111111-1111-4111-8111-111111111101"), CafePremiumId, "PALERMO-2X1", "2x1 en cappuccino"),
+            (Guid.Parse("e0000009-1111-4111-8111-111111111101"), CabaCatalogSeed.Cafes[8].CafeId, "PM-15OFF", "15% en take away"),
+            (Guid.Parse("e0000011-1111-4111-8111-111111111101"), CabaCatalogSeed.Cafes[10].CafeId, "COLEG-FILTER", "Filter gratis con pastelería"),
+        };
+
+        foreach (var (id, cafeteriaId, code, title) in coupons)
+        {
+            var exists = await db.EnterpriseCoupons
+                .AnyAsync(c => c.CafeteriaId == cafeteriaId && c.Code == code);
+            if (exists) continue;
+
+            db.EnterpriseCoupons.Add(new EnterpriseCoupon
+            {
+                Id = id,
+                CafeteriaId = cafeteriaId,
+                Kind = CouponKind.TwoForOne,
+                Title = title,
+                Description = "Cupón demo seed — semana actual (AR).",
+                Code = code,
+                ValidFrom = weekStart,
+                ValidUntil = weekEnd,
+                IsActive = true,
+                CreatedAt = now,
+            });
+        }
+
         await db.SaveChangesAsync();
     }
 
-    private static async Task EnsureMediaDemoAsync(AppDbContext db, MediaOptions media, DateTimeOffset now)
+    private static async Task EnsureCatalogMediaAsync(AppDbContext db, MediaOptions media, DateTimeOffset now)
     {
         var uploadRoot = media.UploadRoot;
         var seedAssetsRoot = SeedImageFiles.ResolveSeedAssetsRoot(uploadRoot);
@@ -110,65 +104,61 @@ public static class DataSeeder
         if (legacyConsumerPhotos.Count > 0)
             db.CafeteriaPhotos.RemoveRange(legacyConsumerPhotos);
 
-        foreach (var seed in SeedPhotos)
-        {
-            SeedImageFiles.EnsureOnDisk(uploadRoot, seed.StorageKey, seedAssetsRoot);
-            await UpsertPhotoAsync(db, seed.PhotoId, seed.CafeteriaId, seed.StorageKey,
-                seed.AuthorUserId, seed.AuthorRole, now.AddDays(-seed.DaysAgo));
-        }
+        foreach (var asset in CabaCatalogSeed.PhotoAssets)
+            SeedImageFiles.EnsureOnDisk(uploadRoot, asset, seedAssetsRoot);
 
-        foreach (var storageKey in SeedReviewPhotos)
-            SeedImageFiles.EnsureOnDisk(uploadRoot, storageKey, seedAssetsRoot);
+        foreach (var cafe in CabaCatalogSeed.Cafes)
+        {
+            SeedImageFiles.EnsureOnDisk(uploadRoot, cafe.PhotoStorageKey, seedAssetsRoot);
+            await UpsertPhotoAsync(db, cafe.PhotoId, cafe.CafeId, cafe.PhotoStorageKey,
+                cafe.EnterpriseId, AuthRoles.Enterprise, now.AddDays(-(cafe.CafeId.GetHashCode() & 15) - 1));
+
+            if (cafe.AvatarStorageKey is not null)
+            {
+                SeedImageFiles.EnsureOnDisk(uploadRoot, cafe.AvatarStorageKey, seedAssetsRoot);
+                var user = await db.EnterpriseUsers.FindAsync(cafe.EnterpriseId);
+                if (user is not null)
+                    user.AvatarStorageKey = cafe.AvatarStorageKey;
+            }
+        }
 
         SeedImageFiles.CleanupLegacySeedFiles(uploadRoot);
-
-        foreach (var seed in SeedReviews)
-        {
-            await UpsertReviewAsync(db, seed.ReviewId, seed.CafeteriaId, seed.AuthorUserId, seed.AuthorRole,
-                seed.Rating, seed.Text, seed.PhotoStorageKey, now.AddDays(-seed.DaysAgo));
-        }
-
         await db.SaveChangesAsync();
     }
 
-    private static readonly (Guid EnterpriseUserId, string AvatarKey)[] SeedEnterpriseAvatars =
-    [
-        (EnterprisePremiumId, "seed-palermo-barra.jpg"),
-        (EnterpriseRecoletaId, "seed-recoleta-detalle.jpg"),
-    ];
-
-    private static async Task EnsureEnterpriseAvatarsAsync(AppDbContext db, MediaOptions media)
+    private static async Task EnsureCatalogReviewsAsync(AppDbContext db, MediaOptions media, DateTimeOffset now)
     {
         var uploadRoot = media.UploadRoot;
         var seedAssetsRoot = SeedImageFiles.ResolveSeedAssetsRoot(uploadRoot);
 
-        foreach (var (enterpriseUserId, avatarKey) in SeedEnterpriseAvatars)
+        foreach (var seed in CoreReviews)
         {
-            SeedImageFiles.EnsureOnDisk(uploadRoot, avatarKey, seedAssetsRoot);
-            var user = await db.EnterpriseUsers.FindAsync(enterpriseUserId);
-            if (user is null) continue;
-            user.AvatarStorageKey = avatarKey;
+            if (seed.PhotoStorageKey is not null)
+                SeedImageFiles.EnsureOnDisk(uploadRoot, seed.PhotoStorageKey, seedAssetsRoot);
+            await UpsertReviewAsync(db, seed.ReviewId, seed.CafeteriaId, seed.AuthorUserId, seed.AuthorRole,
+                seed.Rating, seed.Text, seed.PhotoStorageKey, now.AddDays(-seed.DaysAgo));
+        }
+
+        var catalogIndex = 0;
+        foreach (var cafe in CabaCatalogSeed.Cafes.Skip(4))
+        {
+            catalogIndex++;
+            var authorId = catalogIndex % 2 == 0 ? ConsumerFreeId : ConsumerPremiumId;
+            var reviewId = Guid.Parse($"d{catalogIndex + 4:D7}-1111-4111-8111-111111111101");
+            var photoKey = catalogIndex % 3 == 0
+                ? CabaCatalogSeed.PhotoAssets[catalogIndex % CabaCatalogSeed.PhotoAssets.Length]
+                : null;
+            if (photoKey is not null)
+                SeedImageFiles.EnsureOnDisk(uploadRoot, photoKey, seedAssetsRoot);
+            await UpsertReviewAsync(db, reviewId, cafe.CafeId, authorId, AuthRoles.Consumer,
+                3 + (catalogIndex % 3), $"Muy buen café en {cafe.Name.Split('—').Last().Trim().TrimEnd(')')}. Recomendado.",
+                photoKey, now.AddDays(-catalogIndex));
         }
 
         await db.SaveChangesAsync();
     }
 
-    private static readonly string[] SeedReviewPhotos =
-    [
-        "seed-palermo-interior.jpg",
-        "seed-caballito-visita.jpg",
-        "seed-recoleta-frente.jpg",
-    ];
-
-    private static readonly (Guid PhotoId, Guid CafeteriaId, string StorageKey, Guid AuthorUserId, string AuthorRole, int DaysAgo)[] SeedPhotos =
-    [
-        (Guid.Parse("c1111111-1111-4111-8111-111111111102"), CafePremiumId, "seed-palermo-barra.jpg", EnterprisePremiumId, AuthRoles.Enterprise, 8),
-        (Guid.Parse("c2222222-2222-4222-8222-222222221101"), CafeStandardId, "seed-san-telmo-patio.jpg", EnterpriseStandardId, AuthRoles.Enterprise, 20),
-        (Guid.Parse("c3333333-3333-4333-8333-333333331102"), CafeRecoletaId, "seed-recoleta-detalle.jpg", EnterpriseRecoletaId, AuthRoles.Enterprise, 3),
-        (Guid.Parse("c4444444-4444-4444-8444-444444441101"), CafeCaballitoId, "seed-caballito-local.jpg", EnterpriseStandardId, AuthRoles.Enterprise, 15),
-    ];
-
-    private static readonly (Guid ReviewId, Guid CafeteriaId, Guid AuthorUserId, string AuthorRole, int Rating, string Text, string? PhotoStorageKey, int DaysAgo)[] SeedReviews =
+    private static readonly (Guid ReviewId, Guid CafeteriaId, Guid AuthorUserId, string AuthorRole, int Rating, string Text, string? PhotoStorageKey, int DaysAgo)[] CoreReviews =
     [
         (Guid.Parse("d1111111-1111-4111-8111-111111111101"), CafePremiumId, ConsumerFreeId, AuthRoles.Consumer, 5,
             "Ambiente increíble en Palermo. Ideal para trabajar con notebook un rato.", "seed-palermo-interior.jpg", 14),

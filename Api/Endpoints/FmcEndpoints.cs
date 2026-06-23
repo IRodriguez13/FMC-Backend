@@ -20,7 +20,7 @@ public static class FmcEndpoints
                     return Results.Problem(
                         statusCode: StatusCodes.Status403Forbidden,
                         title: "Registro deshabilitado",
-                        detail: "Demo pública: usá las cuentas seed documentadas en /demo.");
+                        detail: "El registro de nuevas cuentas no está disponible en este momento.");
 
                 var res = await svc.RegisterAsync(body, ct);
                 return Results.Ok(res);
@@ -40,7 +40,7 @@ public static class FmcEndpoints
                     return Results.Problem(
                         statusCode: StatusCodes.Status403Forbidden,
                         title: "Registro deshabilitado",
-                        detail: "Demo pública: usá las cuentas seed documentadas en /demo.");
+                        detail: "El registro de nuevas cuentas no está disponible en este momento.");
 
                 var res = await svc.RegisterAsync(body, ct);
                 return Results.Ok(res);

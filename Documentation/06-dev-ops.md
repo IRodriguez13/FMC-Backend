@@ -1,6 +1,6 @@
 # 06 — Dev, ops y troubleshooting
 
-> **Última verificación:** 2026-06-11  
+> **Última verificación:** 2026-06-23  
 > **Fuente de verdad:** `Makefile`, `docker-compose.yml`, `README.md`
 
 ## Comandos backend (fmcbackend)
@@ -14,6 +14,7 @@
 | `make logs` | Logs contenedor |
 | `make test` | Tests unitarios |
 | `make migrate` | Aplicar migraciones EF (`Api/fmc.db`) |
+| `make seed` | Migrar + poblar **22** cafeterías demo con fotos (`Api/SeedAssets`) |
 | `make migrations-list` | Listar migraciones EF |
 | `make run` | `migrate` + API local dotnet (puerto libre 5214–5230 o `PORT=`) |
 | `make smoke` / `make smoke-full` | Scripts bash contra API |

@@ -25,7 +25,7 @@ ENV ?= Development
 
 .DEFAULT_GOAL := help
 
-.PHONY: help restore build build-release test test-watch clean migrate migrations-list run dev swagger url ci watch up down logs smoke smoke-full docker-build reset-db fix-docker-data-perms backup-db
+.PHONY: help restore build build-release test test-watch clean migrate migrations-list run dev swagger url ci watch up down logs smoke smoke-full docker-build reset-db fix-docker-data-perms backup-db seed
 
 help:
 	@echo "FMC (Find my coffee) — objetivos:"
@@ -36,6 +36,7 @@ help:
 	@echo "  make test-watch   dotnet watch test (re-ejecuta al cambiar código)"
 	@echo "  make clean        dotnet clean"
 	@echo "  make migrate      Aplicar migraciones EF (Api/fmc.db) antes de levantar la API"
+	@echo "  make seed         Migrar + poblar 22 cafeterías demo con fotos (SeedAssets)"
 	@echo "  make migrations-list  Migraciones pendientes / aplicadas"
 	@echo "  make run          migrate + API local (dotnet) — Swagger $(URL)/swagger"
 	@echo "                      (si PORT no está definido: primer puerto libre $(PICK_START)-$(PICK_END))"
@@ -78,6 +79,10 @@ migrate: build
 
 migrations-list: build
 	$(DOTNET) ef migrations list --project Infrastructure/Infrastructure.csproj --startup-project $(API_PROJ)
+
+seed:
+	chmod +x scripts/seed-db.sh
+	./scripts/seed-db.sh
 
 run dev swagger: migrate
 	@echo "FMC API: $(URL)"

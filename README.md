@@ -79,20 +79,30 @@ Pasarela de pago real, canje/redención de cupones en local, menú, notificacion
 
 ## Seed demo (BD vacía tras migraciones)
 
-Al arrancar la API se ejecuta **`MigrateAsync`** y, si no hay cuentas Enterprise, el **seed en código** (`Program.cs`). Eso **versiona los datos de prueba en Git** igual que el esquema: cada dev que borre `docker-data/` (o clone fresco) obtiene **los mismos usuarios, emails y GUIDs** sin commitear ningún `.db`.
+Al arrancar la API se ejecuta **`MigrateAsync`** y el **seed idempotente** en código (`DataSeeder.EnsureCabaCatalogAsync`). También podés poblar la BD sin levantar el servidor:
 
-Contraseña común: `SeedPass-123`
+```bash
+make seed    # migraciones + 22 cafeterías CABA con fotos (Api/SeedAssets → uploads/)
+```
 
-Cuatro cafeterías seed en barrios de **CABA** (Palermo, San Telmo, Recoleta, Caballito), centradas en el Obelisco para `/nearby` y el mapa.
+Eso **versiona los datos de prueba en Git** igual que el esquema: cada dev que borre `docker-data/` (o clone fresco) obtiene **los mismos usuarios, emails y GUIDs** sin commitear ningún `.db`.
 
-| Rol | Email |
-|-----|--------|
-| Enterprise Premium (Palermo) | `enterprise-premium@seed.fmc` |
-| Enterprise Standard (San Telmo) | `enterprise-standard@seed.fmc` |
-| Enterprise Premium (Recoleta) | `enterprise-recoleta@seed.fmc` |
-| Enterprise Standard (Caballito) | `enterprise-caballito@seed.fmc` |
-| Consumidor Free | `consumidor@seed.fmc` |
-| Consumidor Premium | `consumidor-premium@seed.fmc` |
+**22 cafeterías** en barrios de **CABA** (Palermo, San Telmo, Recoleta, Caballito, Belgrano, Chacarita, Microcentro, …), con foto de portada, reseñas demo y avatares enterprise en locales Premium. Imágenes en `Api/SeedAssets/` (7 JPG reutilizados en rotación).
+
+Contraseña común para todas las cuentas seed: **`SeedPass-123`**. En login, pestaña **Consumidor** o **Negocio** según el rol.
+
+| Rol | Email | Password |
+|-----|--------|----------|
+| Consumidor Free | `consumidor@seed.fmc` | `SeedPass-123` |
+| Consumidor Premium | `consumidor-premium@seed.fmc` | `SeedPass-123` |
+| Enterprise Standard (San Telmo) | `enterprise-standard@seed.fmc` | `SeedPass-123` |
+| Enterprise Premium (Palermo) | `enterprise-premium@seed.fmc` | `SeedPass-123` |
+| Enterprise Premium (Recoleta) | `enterprise-recoleta@seed.fmc` | `SeedPass-123` |
+| Enterprise Standard (Caballito) | `enterprise-caballito@seed.fmc` | `SeedPass-123` |
+
+Otros locales enterprise del catálogo: `enterprise-{barrio}@seed.fmc` (misma contraseña). Ej.: `enterprise-belgrano@seed.fmc`, `enterprise-chacarita@seed.fmc`, `enterprise-microcentro@seed.fmc`.
+
+Si falla el login tras reset de BD: `make reset-db && make up` (Docker) o `make seed` (local).
 
 ## ¿Qué puedes probar en la API? (no es CRUD completo de entidades)
 

@@ -26,6 +26,11 @@ Log.Logger = new LoggerConfiguration()
 try
 {
 
+if (args.Contains("--seed-only"))
+{
+    Environment.Exit(await Fmc.Api.SeedRunner.RunAsync(args));
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Serilog ─────────────────────────────────────────────────────────────
@@ -244,7 +249,7 @@ await using (var scope = app.Services.CreateAsyncScope())
     await db.Database.MigrateAsync();
     await db.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=WAL;");
     await db.Database.ExecuteSqlRawAsync("PRAGMA busy_timeout=5000;");
-    await DataSeeder.EnsureCabaDemoAsync(db, mediaOptions);
+    await DataSeeder.EnsureCabaCatalogAsync(db, mediaOptions);
 }
 
 await app.RunAsync();

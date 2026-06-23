@@ -1,14 +1,31 @@
 # Changelog histórico — FMC Backend
 
 > **Fuente de verdad del código:** Git. Registro legible de feats y cambios de producto.  
-> **Última verificación:** 2026-06-09  
+> **Última verificación:** 2026-06-23  
 > **Reglas del proyecto:** `.cursor/rules/fmc-changelog.mdc`, `.cursor/rules/fmc-unit-tests.mdc`
 
 Entradas **más recientes arriba**.
 
 ---
 
-## 2026-06-09 — Favoritos server, métricas, cupones, doc sync
+## 2026-06-23 — Seed catálogo 22 locales + copy producción
+
+**Pedido:** `make seed`, ampliar catálogo demo, mensajes API sin referencias dev.  
+**Alcance:** backend, seed, docs
+
+### Cambios
+
+- `CabaCatalogSeed`: **22 cafeterías** CABA con fotos (`Api/SeedAssets`), enterprise, reseñas y cupones demo.
+- `make seed` / `--seed-only`: migraciones + seed sin levantar HTTP (`SeedRunner`, `scripts/seed-db.sh`).
+- Registro deshabilitado (prod): mensaje neutro sin referencias a seed ni `/demo`.
+- `EnsureCabaCatalogAsync` reemplaza el seed de 4 locales en arranque.
+
+### Validación
+
+- `dotnet test`: 69/69 OK.
+- `make seed` + smoke manual `/nearby`, login, stats, `/media`.
+
+---
 
 **Pedido:** Oleada roadmap (favoritos, stats enterprise, cupones semanales, visibilidad propio local) + sincronizar `Documentation/`.  
 **Alcance:** backend, frontend (doc), seed
