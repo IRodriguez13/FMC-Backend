@@ -11,6 +11,7 @@ using Fmc.Infrastructure;
 using Fmc.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -132,6 +133,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(["application/json"]);
+});
+
 // ── Swagger ─────────────────────────────────────────────────────────────
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -186,6 +193,8 @@ var disableHttpsRedirect =
 if (!disableHttpsRedirect)
     app.UseHttpsRedirection();
 
+app.UseResponseCompression();
+
 var mediaOptions = app.Configuration.GetSection(MediaOptions.SectionName).Get<MediaOptions>() ?? new MediaOptions();
 var uploadRootFull = System.IO.Path.GetFullPath(mediaOptions.UploadRoot);
 Directory.CreateDirectory(uploadRootFull);
@@ -218,6 +227,10 @@ app.UseStaticFiles(new StaticFileOptions
 {
     RequestPath = mediaOptions.PublicUrlPath,
     FileProvider = new PhysicalFileProvider(uploadRootFull),
+    OnPrepareResponse = ctx =>
+    {
+        ctx.Context.Response.Headers.CacheControl = "public,max-age=86400,immutable";
+    },
 });
 
 app.UseCors("FmcCors");

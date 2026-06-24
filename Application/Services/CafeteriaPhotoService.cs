@@ -1,3 +1,4 @@
+using Fmc.Application.Caching;
 using Fmc.Application.Configuration;
 using Fmc.Application.Contracts;
 using Fmc.Application.Interfaces;
@@ -33,6 +34,7 @@ public class CafeteriaPhotoService(
     ICafeteriaPhotoRepository photos,
     IEnterpriseUserRepository enterpriseUsers,
     IFileStorageService storage,
+    IDiscoveryReadCache discoveryCache,
     IOptions<MediaOptions> mediaOptions)
     : ICafeteriaPhotoService
 {
@@ -49,12 +51,17 @@ public class CafeteriaPhotoService(
 
     private readonly MediaOptions _media = mediaOptions.Value;
 
-    public async Task<CafeteriaPhotosResponse> ListAsync(Guid cafeteriaId, CancellationToken ct = default)
-    {
-        await EnsureCafeteriaExistsAsync(cafeteriaId, ct);
-        var list = await photos.ListByCafeteriaIdAsync(cafeteriaId, ct);
-        return new CafeteriaPhotosResponse(list.Select(Map).ToList());
-    }
+    public Task<CafeteriaPhotosResponse> ListAsync(Guid cafeteriaId, CancellationToken ct = default) =>
+        discoveryCache.GetOrCreateAsync(
+            DiscoveryCacheKeys.Photos(cafeteriaId),
+            DiscoveryCacheTtl.Photos,
+            async innerCt =>
+            {
+                await EnsureCafeteriaExistsAsync(cafeteriaId, innerCt);
+                var list = await photos.ListByCafeteriaIdAsync(cafeteriaId, innerCt);
+                return new CafeteriaPhotosResponse(list.Select(Map).ToList());
+            },
+            ct);
 
     public async Task<CafeteriaPhotoDto> UploadAsync(
         Guid cafeteriaId,
@@ -84,6 +91,7 @@ public class CafeteriaPhotoService(
         };
 
         var saved = await photos.AddAsync(entity, ct);
+        discoveryCache.InvalidateDiscovery();
         return Map(saved);
     }
 
@@ -104,6 +112,7 @@ public class CafeteriaPhotoService(
             throw new KeyNotFoundException(PhotoNotFound);
 
         await photos.DeleteAsync(photo, ct);
+        discoveryCache.InvalidateDiscovery();
     }
 
     private async Task EnsureEnterpriseOwnsCafeteriaAsync(

@@ -1,3 +1,4 @@
+using Fmc.Application.Caching;
 using Fmc.Application.Configuration;
 using Fmc.Application.Contracts;
 using Fmc.Application.Interfaces;
@@ -37,6 +38,7 @@ public class CafeteriaReviewServiceTests
             cafeterias.Object,
             reviews.Object,
             storage.Object,
+            new PassthroughDiscoveryReadCache(),
             Options.Create(new MediaOptions { MaxFileSizeBytes = 5_242_880 }));
     }
 

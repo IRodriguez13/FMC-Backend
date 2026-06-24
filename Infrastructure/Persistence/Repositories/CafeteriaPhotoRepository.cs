@@ -11,12 +11,11 @@ public class CafeteriaPhotoRepository(AppDbContext db) : ICafeteriaPhotoReposito
         Guid cafeteriaId,
         CancellationToken ct = default)
     {
-        var list = await db.CafeteriaPhotos
+        return await db.CafeteriaPhotos
             .AsNoTracking()
             .Where(p => p.CafeteriaId == cafeteriaId && p.AuthorRole == AuthRoles.Enterprise)
+            .OrderByDescending(p => p.CreatedAt)
             .ToListAsync(ct);
-
-        return list.OrderByDescending(p => p.CreatedAt).ToList();
     }
 
     public async Task<IReadOnlyDictionary<Guid, string>> GetLatestStorageKeyByCafeteriaIdsAsync(
@@ -27,16 +26,16 @@ public class CafeteriaPhotoRepository(AppDbContext db) : ICafeteriaPhotoReposito
         if (ids.Count == 0)
             return new Dictionary<Guid, string>();
 
-        var list = await db.CafeteriaPhotos
+        return await db.CafeteriaPhotos
             .AsNoTracking()
             .Where(p => ids.Contains(p.CafeteriaId) && p.AuthorRole == AuthRoles.Enterprise)
-            .ToListAsync(ct);
-
-        return list
             .GroupBy(p => p.CafeteriaId)
-            .ToDictionary(
-                g => g.Key,
-                g => g.OrderByDescending(p => p.CreatedAt).First().StorageKey);
+            .Select(g => new
+            {
+                CafeteriaId = g.Key,
+                StorageKey = g.OrderByDescending(p => p.CreatedAt).Select(p => p.StorageKey).First(),
+            })
+            .ToDictionaryAsync(x => x.CafeteriaId, x => x.StorageKey, ct);
     }
 
     public Task<CafeteriaPhoto?> GetByIdAsync(Guid photoId, CancellationToken ct = default) =>

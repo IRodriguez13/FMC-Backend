@@ -1,3 +1,4 @@
+using Fmc.Application.Caching;
 using Fmc.Application.Configuration;
 using Fmc.Application.Contracts;
 using Fmc.Application.Interfaces;
@@ -42,6 +43,7 @@ public class CafeteriaDiscoveryServiceTests
             photoMock.Object,
             reviewMock.Object,
             storageMock.Object,
+            new PassthroughDiscoveryReadCache(),
             Options.Create(DefaultDiscoveryOptions()));
     }
 

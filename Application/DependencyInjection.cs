@@ -1,6 +1,8 @@
+using Fmc.Application.Caching;
 using Fmc.Application.Configuration;
 using Fmc.Application.Interfaces;
 using Fmc.Application.Services;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Fmc.Application;
@@ -9,6 +11,9 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
+        services.AddMemoryCache();
+        services.AddSingleton<IDiscoveryReadCache, DiscoveryReadCache>();
+
         services.AddScoped<IConsumerAuthService, ConsumerAuthService>();
         services.AddScoped<IEnterpriseAuthService, EnterpriseAuthService>();
         services.AddScoped<IConsumerProfileService, ConsumerProfileService>();

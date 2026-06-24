@@ -1,3 +1,4 @@
+using Fmc.Application.Caching;
 using Fmc.Application.Configuration;
 using Fmc.Application.Contracts;
 using Fmc.Application.Interfaces;
@@ -54,6 +55,7 @@ public class CafeteriaReviewService(
     ICafeteriaRepository cafeterias,
     ICafeteriaReviewRepository reviews,
     IFileStorageService storage,
+    IDiscoveryReadCache discoveryCache,
     IOptions<MediaOptions> mediaOptions)
     : AuthorOwnedCrudServiceBase<CafeteriaReview>(cafeterias, reviews), ICafeteriaReviewService
 {
@@ -70,14 +72,19 @@ public class CafeteriaReviewService(
 
     private readonly MediaOptions _media = mediaOptions.Value;
 
-    public async Task<CafeteriaReviewsResponse> ListAsync(Guid cafeteriaId, CancellationToken ct = default)
-    {
-        await EnsureCafeteriaExistsAsync(cafeteriaId, ct);
-        var list = await reviews.ListByCafeteriaIdAsync(cafeteriaId, ct);
-        var dtos = list.Select(Map).ToList();
-        double? avg = dtos.Count > 0 ? dtos.Average(r => r.Rating) : null;
-        return new CafeteriaReviewsResponse(dtos, avg, dtos.Count);
-    }
+    public Task<CafeteriaReviewsResponse> ListAsync(Guid cafeteriaId, CancellationToken ct = default) =>
+        discoveryCache.GetOrCreateAsync(
+            DiscoveryCacheKeys.Reviews(cafeteriaId),
+            DiscoveryCacheTtl.Reviews,
+            async innerCt =>
+            {
+                await EnsureCafeteriaExistsAsync(cafeteriaId, innerCt);
+                var list = await reviews.ListByCafeteriaIdAsync(cafeteriaId, innerCt);
+                var dtos = list.Select(Map).ToList();
+                double? avg = dtos.Count > 0 ? dtos.Average(r => r.Rating) : null;
+                return new CafeteriaReviewsResponse(dtos, avg, dtos.Count);
+            },
+            ct);
 
     public async Task<CafeteriaReviewDto> CreateOrUpdateAsync(
         Guid cafeteriaId,
@@ -107,11 +114,13 @@ public class CafeteriaReviewService(
             };
 
             var saved = await reviews.AddAsync(entity, ct);
+            InvalidateAfterWrite(cafeteriaId);
             return Map(saved);
         }
 
         ApplyChanges(existing, rating, text, now);
         await reviews.SaveChangesAsync(ct);
+        InvalidateAfterWrite(cafeteriaId);
         return Map(existing);
     }
 
@@ -131,17 +140,21 @@ public class CafeteriaReviewService(
 
         ApplyChanges(entity, rating, text, DateTimeOffset.UtcNow);
         await reviews.SaveChangesAsync(ct);
+        InvalidateAfterWrite(cafeteriaId);
         return Map(entity);
     }
 
-    public Task DeleteAsync(
+    public async Task DeleteAsync(
         Guid cafeteriaId,
         Guid reviewId,
         Guid authorUserId,
         string authorRole,
-        CancellationToken ct = default) =>
-        DeleteOwnedAsync(
+        CancellationToken ct = default)
+    {
+        await DeleteOwnedAsync(
             cafeteriaId, reviewId, authorUserId, authorRole, ReviewNotFound, ReviewForbidden, ct);
+        InvalidateAfterWrite(cafeteriaId);
+    }
 
     public async Task<CafeteriaReviewDto> UploadPhotoAsync(
         Guid cafeteriaId,
@@ -163,6 +176,7 @@ public class CafeteriaReviewService(
         entity.PhotoStorageKey = storageKey;
         entity.UpdatedAt = DateTimeOffset.UtcNow;
         await reviews.SaveChangesAsync(ct);
+        InvalidateAfterWrite(cafeteriaId);
         return Map(entity);
     }
 
@@ -184,7 +198,11 @@ public class CafeteriaReviewService(
         entity.PhotoStorageKey = null;
         entity.UpdatedAt = DateTimeOffset.UtcNow;
         await reviews.SaveChangesAsync(ct);
+        InvalidateAfterWrite(cafeteriaId);
     }
+
+    private void InvalidateAfterWrite(Guid cafeteriaId) =>
+        discoveryCache.InvalidateDiscovery();
 
     private void ValidateImage(long contentLength, string contentType)
     {

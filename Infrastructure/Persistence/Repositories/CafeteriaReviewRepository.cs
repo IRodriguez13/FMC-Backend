@@ -11,12 +11,11 @@ public class CafeteriaReviewRepository(AppDbContext db)
         Guid cafeteriaId,
         CancellationToken ct = default)
     {
-        var list = await Db.CafeteriaReviews
+        return await Db.CafeteriaReviews
             .AsNoTracking()
             .Where(r => r.CafeteriaId == cafeteriaId)
+            .OrderByDescending(r => r.UpdatedAt)
             .ToListAsync(ct);
-
-        return list.OrderByDescending(r => r.UpdatedAt).ToList();
     }
 
     public async Task<IReadOnlyDictionary<Guid, (double? AverageRating, int TotalCount)>> GetSummariesByCafeteriaIdsAsync(

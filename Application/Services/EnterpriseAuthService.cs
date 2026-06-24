@@ -1,3 +1,4 @@
+using Fmc.Application.Caching;
 using Fmc.Application.Contracts;
 using Fmc.Application.Interfaces;
 using Fmc.Domain.Constants;
@@ -17,7 +18,8 @@ public class EnterpriseAuthService(
     ICafeteriaRepository cafeterias,
     IUnitOfWork unitOfWork,
     IPasswordHasher passwords,
-    IJwtTokenService jwt) : IEnterpriseAuthService
+    IJwtTokenService jwt,
+    IDiscoveryReadCache discoveryCache) : IEnterpriseAuthService
 {
     public async Task<AuthTokenResponse> RegisterAsync(EnterpriseRegisterRequest request, CancellationToken ct = default)
     {
@@ -68,6 +70,7 @@ public class EnterpriseAuthService(
         await cafeterias.AddAsync(cafeteria, ct);
         await enterpriseUsers.AddAsync(enterprise, ct);
         await unitOfWork.CommitTransactionAsync(ct);
+        discoveryCache.InvalidateDiscovery();
 
         var token = jwt.CreateEnterpriseToken(
             enterprise.Id,

@@ -1,3 +1,4 @@
+using Fmc.Application.Caching;
 using Fmc.Application.Configuration;
 using Fmc.Application.Interfaces;
 using Fmc.Application.Services;
@@ -61,6 +62,7 @@ public class CafeteriaPhotoServiceTests
             photos.Object,
             enterpriseUsers.Object,
             storage.Object,
+            new PassthroughDiscoveryReadCache(),
             Options.Create(mediaOptions ?? DefaultMediaOptions));
     }
 

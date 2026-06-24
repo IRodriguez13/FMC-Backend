@@ -1,3 +1,4 @@
+using Fmc.Application.Caching;
 using Fmc.Application.Configuration;
 using Fmc.Application.Contracts;
 using Fmc.Application.Interfaces;
@@ -22,11 +23,12 @@ public class CafeteriaDiscoveryService(
     ICafeteriaPhotoRepository photoRepository,
     ICafeteriaReviewRepository reviewRepository,
     IFileStorageService storage,
+    IDiscoveryReadCache discoveryCache,
     IOptions<DiscoveryOptions> discoveryOptions) : ICafeteriaDiscoveryService
 {
     private readonly DiscoveryOptions _disc = discoveryOptions.Value;
 
-    public async Task<NearbyCafeteriasResponse> GetNearbyAsync(NearbyQuery query, CancellationToken ct = default)
+    public Task<NearbyCafeteriasResponse> GetNearbyAsync(NearbyQuery query, CancellationToken ct = default)
     {
         LocationValidation.EnsureWithinCabaServiceArea(query.Latitude, query.Longitude);
 
@@ -42,7 +44,26 @@ public class CafeteriaDiscoveryService(
             ? Math.Min(query.RadiusKm.Value, maxRadiusKm)
             : maxRadiusKm;
 
-        var listed = await cafeteriaRepository.GetListedForDiscoveryAsync(ct);
+        var cacheKey = DiscoveryCacheKeys.Nearby(query, radiusKm, maxResults);
+        return discoveryCache.GetOrCreateAsync(
+            cacheKey,
+            DiscoveryCacheTtl.Nearby,
+            ct => BuildNearbyAsync(query, radiusKm, maxResults, ct),
+            ct);
+    }
+
+    private async Task<NearbyCafeteriasResponse> BuildNearbyAsync(
+        NearbyQuery query,
+        double radiusKm,
+        int maxResults,
+        CancellationToken ct)
+    {
+        var listed = await discoveryCache.GetOrCreateAsync(
+            DiscoveryCacheKeys.ListedSuffix,
+            DiscoveryCacheTtl.Listed,
+            cafeteriaRepository.GetListedForDiscoveryAsync,
+            ct);
+
         var radiusM = radiusKm * 1000;
 
         var ranked = listed

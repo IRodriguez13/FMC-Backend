@@ -1,3 +1,4 @@
+using Fmc.Application.Caching;
 using Fmc.Application.Contracts;
 using Fmc.Application.Interfaces;
 using Fmc.Domain.Entities;
@@ -29,7 +30,8 @@ public interface IEnterpriseCafeteriaService
 public class EnterpriseCafeteriaService(
     IEnterpriseUserRepository enterpriseUsers,
     ICafeteriaRepository cafeterias,
-    IFileStorageService storage) : IEnterpriseCafeteriaService
+    IFileStorageService storage,
+    IDiscoveryReadCache discoveryCache) : IEnterpriseCafeteriaService
 {
     private static readonly HashSet<string> AllowedAvatarTypes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -65,6 +67,7 @@ public class EnterpriseCafeteriaService(
         cafe.UpdatedAt = DateTimeOffset.UtcNow;
 
         await cafeterias.SaveChangesAsync(ct);
+        discoveryCache.InvalidateDiscovery();
         eu = await enterpriseUsers.GetByIdAsync(enterpriseUserId, ct)
              ?? throw new KeyNotFoundException("Cuenta enterprise no encontrada.");
         return Map(eu);
@@ -109,6 +112,7 @@ public class EnterpriseCafeteriaService(
 
         eu.SubscriptionTier = tier;
         await enterpriseUsers.SaveChangesAsync(ct);
+        discoveryCache.InvalidateDiscovery();
 
         return (eu.Id, eu.Email, eu.CafeteriaId, eu.SubscriptionTier);
     }
